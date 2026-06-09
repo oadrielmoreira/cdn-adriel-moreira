@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
@@ -324,18 +324,18 @@ export default function AudiobooksPage() {
           ) : audios.length === 0 ? (
             <div
               style={{
-                border: “1px dashed var(--border)”,
+                border: "1px dashed var(--border)",
                 borderRadius: 16,
                 padding: 48,
-                textAlign: “center”,
-                color: “var(--text-muted)”,
+                textAlign: "center",
+                color: "var(--text-muted)",
               }}
             >
               <Music size={32} style={{ opacity: 0.5 }} />
               <p style={{ marginTop: 12 }}>
                 {canManage
-                  ? 'Nenhum áudio ainda. Clique em “Subir áudio” para começar.'
-                  : “Nenhum áudio disponível para você no momento.”}
+                  ? 'Nenhum áudio ainda. Clique em "Subir áudio" para começar.'
+                  : "Nenhum áudio disponível para você no momento."}
               </p>
             </div>
           ) : (

@@ -1,16 +1,15 @@
 import { SignJWT, jwtVerify } from "jose";
 import { cookies } from "next/headers";
 
-/**
- * Autenticação simples por senha única.
- *
- * - A senha fica na variável de ambiente APP_PASSWORD (troca fácil, sem mexer no código).
- * - Após login correto, gravamos um cookie de sessão assinado (JWT) usando AUTH_SECRET.
- * - O middleware valida esse cookie em todas as rotas protegidas.
- */
-
 const COOKIE_NAME = "cdn_session";
 const SESSION_DAYS = 7;
+
+export type SessionPayload = {
+  userId: string;
+  email: string;
+  name: string;
+  role: "ADMIN" | "MEMBER";
+};
 
 function getSecret(): Uint8Array {
   const secret = process.env.AUTH_SECRET;
@@ -22,13 +21,8 @@ function getSecret(): Uint8Array {
   return new TextEncoder().encode(secret);
 }
 
-export function getExpectedPassword(): string {
-  return process.env.APP_PASSWORD ?? "cdn@2030";
-}
-
-/** Cria o cookie de sessão após senha correta. */
-export async function createSession() {
-  const token = await new SignJWT({ role: "member" })
+export async function createSession(payload: SessionPayload) {
+  const token = await new SignJWT({ ...payload })
     .setProtectedHeader({ alg: "HS256" })
     .setIssuedAt()
     .setExpirationTime(`${SESSION_DAYS}d`)
@@ -44,26 +38,33 @@ export async function createSession() {
   });
 }
 
-/** Remove o cookie de sessão (logout). */
 export async function destroySession() {
   const jar = await cookies();
   jar.delete(COOKIE_NAME);
 }
 
-/** Verifica se a sessão atual é válida (para Server Components). */
-export async function isAuthenticated(): Promise<boolean> {
+export async function getSession(): Promise<SessionPayload | null> {
   const jar = await cookies();
   const token = jar.get(COOKIE_NAME)?.value;
-  if (!token) return false;
+  if (!token) return null;
   try {
-    await jwtVerify(token, getSecret());
-    return true;
+    const { payload } = await jwtVerify(token, getSecret());
+    return payload as unknown as SessionPayload;
   } catch {
-    return false;
+    return null;
   }
 }
 
-/** Verifica um token isolado (usado no middleware, que roda no edge). */
+export async function isAuthenticated(): Promise<boolean> {
+  return (await getSession()) !== null;
+}
+
+export async function isAdmin(): Promise<boolean> {
+  const session = await getSession();
+  return session?.role === "ADMIN";
+}
+
+/** Usado no middleware (Edge runtime) — sem acesso ao Node.js. */
 export async function verifyToken(
   token: string | undefined,
   secret: string | undefined

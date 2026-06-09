@@ -6,10 +6,11 @@ import Link from "next/link";
 import { AudioPlayer } from "@/components/AudioPlayer";
 import {
   ChevronLeft, Copy, Check, Globe, Lock, Trash2,
-  Pencil, Tag, Plus, X, Settings2,
+  Pencil, Tag, Plus, X, Users, UserPlus, UserMinus,
 } from "lucide-react";
 
 type TagData = { id: string; name: string; color: string };
+type UserData = { id: string; name: string; email: string };
 
 type AudioData = {
   id: string;
@@ -21,14 +22,19 @@ type AudioData = {
 };
 
 const COLOR_PALETTE = [
-  "#7C3AED", "#2563EB", "#059669", "#D97706",
-  "#DC2626", "#DB2777", "#0891B2", "#65A30D",
+  "#22C55E", "#2563EB", "#D97706", "#DC2626",
+  "#DB2777", "#0891B2", "#65A30D", "#7C3AED",
 ];
 
-// ── picker modes ────────────────────────────────────────────────────────────
 type PickerMode = "add" | "manage" | "create";
 
-export function AudioDetailClient({ audio }: { audio: AudioData }) {
+export function AudioDetailClient({
+  audio,
+  isAdmin,
+}: {
+  audio: AudioData;
+  isAdmin: boolean;
+}) {
   const router = useRouter();
   const [isPublic, setIsPublic] = useState(audio.isPublic);
   const [title, setTitle] = useState(audio.title);
@@ -44,18 +50,21 @@ export function AudioDetailClient({ audio }: { audio: AudioData }) {
   const [allTags, setAllTags] = useState<TagData[]>([]);
   const [loadingTags, setLoadingTags] = useState(false);
   const [tagSearch, setTagSearch] = useState("");
-
-  // create
   const [newTagName, setNewTagName] = useState("");
   const [newTagColor, setNewTagColor] = useState(COLOR_PALETTE[0]);
   const [savingTag, setSavingTag] = useState(false);
-
-  // edit (manage mode)
   const [editingTagId, setEditingTagId] = useState<string | null>(null);
   const [editTagName, setEditTagName] = useState("");
   const [editTagColor, setEditTagColor] = useState("");
-
   const pickerRef = useRef<HTMLDivElement>(null);
+
+  // Controle de acesso (admin)
+  const [accessUsers, setAccessUsers] = useState<UserData[]>([]);
+  const [allUsers, setAllUsers] = useState<UserData[]>([]);
+  const [loadingAccess, setLoadingAccess] = useState(false);
+  const [showUserPicker, setShowUserPicker] = useState(false);
+  const [userSearch, setUserSearch] = useState("");
+  const accessPickerRef = useRef<HTMLDivElement>(null);
 
   const audioSrc = `/api/stream/${audio.fileName}`;
   const shareUrl =
@@ -63,17 +72,69 @@ export function AudioDetailClient({ audio }: { audio: AudioData }) {
       ? `${window.location.origin}/share/${audio.id}`
       : `/share/${audio.id}`;
 
+  // Fecha tag picker ao clicar fora
   useEffect(() => {
     if (!showTagPicker) return;
     function handler(e: MouseEvent) {
-      if (pickerRef.current && !pickerRef.current.contains(e.target as Node)) {
-        closePicker();
-      }
+      if (pickerRef.current && !pickerRef.current.contains(e.target as Node)) closePicker();
     }
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
   }, [showTagPicker]);
 
+  // Fecha user picker ao clicar fora
+  useEffect(() => {
+    if (!showUserPicker) return;
+    function handler(e: MouseEvent) {
+      if (accessPickerRef.current && !accessPickerRef.current.contains(e.target as Node)) {
+        setShowUserPicker(false);
+        setUserSearch("");
+      }
+    }
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [showUserPicker]);
+
+  // Carrega acesso quando admin abre a seção
+  useEffect(() => {
+    if (!isAdmin) return;
+    fetchAccess();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isAdmin]);
+
+  async function fetchAccess() {
+    setLoadingAccess(true);
+    const [accessRes, usersRes] = await Promise.all([
+      fetch(`/api/audios/${audio.id}/access`),
+      fetch("/api/users"),
+    ]);
+    if (accessRes.ok) setAccessUsers((await accessRes.json()).access ?? []);
+    if (usersRes.ok) setAllUsers((await usersRes.json()).users ?? []);
+    setLoadingAccess(false);
+  }
+
+  async function grantAccess(userId: string) {
+    await fetch(`/api/audios/${audio.id}/access`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ userId }),
+    });
+    const user = allUsers.find((u) => u.id === userId);
+    if (user) setAccessUsers((prev) => [...prev, user]);
+    setShowUserPicker(false);
+    setUserSearch("");
+  }
+
+  async function revokeAccess(userId: string) {
+    await fetch(`/api/audios/${audio.id}/access`, {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ userId }),
+    });
+    setAccessUsers((prev) => prev.filter((u) => u.id !== userId));
+  }
+
+  // ── Tags ──
   function closePicker() {
     setShowTagPicker(false);
     setPickerMode("add");
@@ -104,13 +165,17 @@ export function AudioDetailClient({ audio }: { audio: AudioData }) {
     await fetch(`/api/audios/${audio.id}/tags`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ tagId: tag.id }),
+      body: JSON.stringify({ name: tag.name }),
     });
   }
 
   async function removeTag(tagId: string) {
     setTags((prev) => prev.filter((t) => t.id !== tagId));
-    await fetch(`/api/audios/${audio.id}/tags?tagId=${tagId}`, { method: "DELETE" });
+    await fetch(`/api/audios/${audio.id}/tags`, {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ tagId }),
+    });
   }
 
   async function createAndAddTag() {
@@ -143,8 +208,8 @@ export function AudioDetailClient({ audio }: { audio: AudioData }) {
     });
     if (res.ok) {
       const updated: TagData = (await res.json()).tag;
-      setAllTags((prev) => prev.map((t) => t.id === tagId ? updated : t));
-      setTags((prev) => prev.map((t) => t.id === tagId ? updated : t));
+      setAllTags((prev) => prev.map((t) => (t.id === tagId ? updated : t)));
+      setTags((prev) => prev.map((t) => (t.id === tagId ? updated : t)));
       setEditingTagId(null);
     }
   }
@@ -184,8 +249,11 @@ export function AudioDetailClient({ audio }: { audio: AudioData }) {
   }
 
   async function copyLink() {
-    try { await navigator.clipboard.writeText(shareUrl); setCopied(true); setTimeout(() => setCopied(false), 1800); }
-    catch { /* fallback */ }
+    try {
+      await navigator.clipboard.writeText(shareUrl);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1800);
+    } catch { /* fallback */ }
   }
 
   async function remove() {
@@ -211,6 +279,11 @@ export function AudioDetailClient({ audio }: { audio: AudioData }) {
     (t) => !tags.some((at) => at.id === t.id) && t.name.toLowerCase().includes(tagSearch.toLowerCase())
   );
   const filteredAll = allTags.filter((t) => t.name.toLowerCase().includes(tagSearch.toLowerCase()));
+
+  // Usuários que não têm acesso ainda (para o picker)
+  const usersWithoutAccess = allUsers.filter(
+    (u) => !accessUsers.some((a) => a.id === u.id) && u.name.toLowerCase().includes(userSearch.toLowerCase())
+  );
 
   return (
     <div className="fade-up">
@@ -254,28 +327,18 @@ export function AudioDetailClient({ audio }: { audio: AudioData }) {
             </button>
 
             {showTagPicker && (
-              <div style={{
-                position: "absolute", top: "calc(100% + 6px)", right: 0,
-                background: "var(--bg-input)", border: "1px solid var(--border)",
-                borderRadius: 12, padding: 8, minWidth: 240, zIndex: 30,
-                boxShadow: "0 10px 30px rgba(0,0,0,0.4)",
-              }}>
-
-                {/* ── Abas ── */}
+              <div style={{ position: "absolute", top: "calc(100% + 6px)", right: 0, background: "var(--bg-input)", border: "1px solid var(--border)", borderRadius: 12, padding: 8, minWidth: 240, zIndex: 30, boxShadow: "0 10px 30px rgba(0,0,0,0.4)" }}>
+                {/* Abas */}
                 <div style={{ display: "flex", gap: 4, marginBottom: 8 }}>
                   {(["add", "manage"] as PickerMode[]).map((mode) => (
                     <button key={mode} onClick={() => { setPickerMode(mode); setTagSearch(""); setEditingTagId(null); }}
-                      style={{
-                        flex: 1, padding: "5px 0", borderRadius: 8, border: "none", fontSize: 12.5, fontWeight: 600,
-                        background: pickerMode === mode ? "var(--primary)" : "var(--bg-elevated)",
-                        color: pickerMode === mode ? "white" : "var(--text-muted)",
-                      }}>
+                      style={{ flex: 1, padding: "5px 0", borderRadius: 8, border: "none", fontSize: 12.5, fontWeight: 600, background: pickerMode === mode ? "var(--primary)" : "var(--bg-elevated)", color: pickerMode === mode ? "white" : "var(--text-muted)" }}>
                       {mode === "add" ? "Adicionar" : "Gerenciar"}
                     </button>
                   ))}
                 </div>
 
-                {/* ── Modo: Adicionar ── */}
+                {/* Modo: Adicionar */}
                 {pickerMode === "add" && (
                   <>
                     <input autoFocus placeholder="Buscar tag…" value={tagSearch} onChange={(e) => setTagSearch(e.target.value)}
@@ -302,14 +365,13 @@ export function AudioDetailClient({ audio }: { audio: AudioData }) {
                       </div>
                     )}
                     <button onClick={() => { setPickerMode("create"); setTagSearch(""); }}
-                      style={{ display: "flex", alignItems: "center", gap: 7, width: "100%", background: "transparent", border: "none", color: "var(--primary)", padding: "7px 10px", borderRadius: 8, fontSize: 13.5, fontWeight: 600, borderTop: "1px solid var(--border)", marginTop: 4 }}
-                    >
+                      style={{ display: "flex", alignItems: "center", gap: 7, width: "100%", background: "transparent", border: "none", color: "var(--primary)", padding: "7px 10px", borderRadius: 8, fontSize: 13.5, fontWeight: 600, borderTop: "1px solid var(--border)", marginTop: 4 }}>
                       <Plus size={13} /> Nova tag…
                     </button>
                   </>
                 )}
 
-                {/* ── Modo: Criar ── */}
+                {/* Modo: Criar */}
                 {pickerMode === "create" && (
                   <div style={{ padding: "2px 0" }}>
                     <input autoFocus placeholder="Nome da tag" value={newTagName} onChange={(e) => setNewTagName(e.target.value)}
@@ -327,7 +389,7 @@ export function AudioDetailClient({ audio }: { audio: AudioData }) {
                   </div>
                 )}
 
-                {/* ── Modo: Gerenciar ── */}
+                {/* Modo: Gerenciar */}
                 {pickerMode === "manage" && (
                   <>
                     <input autoFocus placeholder="Buscar tag…" value={tagSearch} onChange={(e) => setTagSearch(e.target.value)}
@@ -385,7 +447,6 @@ export function AudioDetailClient({ audio }: { audio: AudioData }) {
           </div>
         </div>
 
-        {/* Pills das tags deste áudio */}
         {tags.length === 0 ? (
           <p style={{ color: "var(--text-muted)", fontSize: 13 }}>Sem tags. Clique em "Adicionar" para associar.</p>
         ) : (
@@ -409,9 +470,13 @@ export function AudioDetailClient({ audio }: { audio: AudioData }) {
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
             {isPublic ? <Globe size={18} style={{ color: "var(--success)" }} /> : <Lock size={18} style={{ color: "var(--text-muted)" }} />}
             <div>
-              <p style={{ fontWeight: 600, fontSize: 14.5 }}>{isPublic ? "Público" : "Privado"}</p>
+              <p style={{ fontWeight: 600, fontSize: 14.5 }}>
+                {isPublic ? "Link público ativado" : "Link público desativado"}
+              </p>
               <p style={{ color: "var(--text-muted)", fontSize: 12.5 }}>
-                {isPublic ? "Qualquer pessoa com o link pode ouvir" : "Apenas pessoas autenticadas têm acesso"}
+                {isPublic
+                  ? "O link de compartilhamento funciona sem login"
+                  : "Somente usuários com acesso podem ouvir"}
               </p>
             </div>
           </div>
@@ -428,8 +493,91 @@ export function AudioDetailClient({ audio }: { audio: AudioData }) {
             {copied ? <><Check size={16} /> Copiado</> : <><Copy size={16} /> Copiar</>}
           </button>
         </div>
-        {!isPublic && <p style={{ color: "var(--text-muted)", fontSize: 12, marginTop: 8 }}>Torne o áudio público para que o link funcione para qualquer pessoa.</p>}
+        {!isPublic && (
+          <p style={{ color: "var(--text-muted)", fontSize: 12, marginTop: 8 }}>
+            Ative o link público para que qualquer pessoa possa acessar sem login.
+            O acesso na plataforma é controlado separadamente pelo painel abaixo.
+          </p>
+        )}
       </div>
+
+      {/* ── Controle de Acesso (admin only) ── */}
+      {isAdmin && (
+        <div style={{ marginTop: 16, background: "var(--bg-elevated)", border: "1px solid var(--border)", borderRadius: 16, padding: 20 }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 7, fontWeight: 600, fontSize: 14.5 }}>
+              <Users size={15} style={{ color: "var(--text-muted)" }} /> Controle de Acesso
+            </div>
+            <div style={{ position: "relative" }} ref={accessPickerRef}>
+              <button
+                onClick={() => { setShowUserPicker((v) => !v); setUserSearch(""); }}
+                style={{ ...iconOutlineBtn, padding: "6px 10px", display: "flex", alignItems: "center", gap: 5, fontSize: 13 }}
+              >
+                <UserPlus size={14} /> Adicionar
+              </button>
+
+              {showUserPicker && (
+                <div style={{ position: "absolute", top: "calc(100% + 6px)", right: 0, background: "var(--bg-input)", border: "1px solid var(--border)", borderRadius: 12, padding: 8, minWidth: 240, zIndex: 30, boxShadow: "0 10px 30px rgba(0,0,0,0.4)" }}>
+                  <input autoFocus placeholder="Buscar usuário…" value={userSearch} onChange={(e) => setUserSearch(e.target.value)}
+                    style={{ width: "100%", background: "var(--bg-elevated)", border: "1px solid var(--border)", borderRadius: 8, padding: "7px 10px", color: "var(--text)", fontSize: 13, outline: "none", boxSizing: "border-box", marginBottom: 4 }}
+                  />
+                  {usersWithoutAccess.length === 0 ? (
+                    <p style={{ color: "var(--text-muted)", fontSize: 13, padding: "6px 10px" }}>
+                      {userSearch ? "Nenhum usuário encontrado." : "Todos os usuários já têm acesso."}
+                    </p>
+                  ) : (
+                    <div style={{ maxHeight: 200, overflowY: "auto" }}>
+                      {usersWithoutAccess.map((u) => (
+                        <button key={u.id} onClick={() => grantAccess(u.id)}
+                          style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", gap: 1, width: "100%", background: "transparent", border: "none", color: "var(--text)", padding: "8px 10px", borderRadius: 8, textAlign: "left" }}
+                          onMouseEnter={(e) => (e.currentTarget.style.background = "var(--bg-elevated)")}
+                          onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
+                        >
+                          <span style={{ fontSize: 13.5, fontWeight: 600 }}>{u.name}</span>
+                          <span style={{ fontSize: 12, color: "var(--text-muted)" }}>{u.email}</span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+
+          <p style={{ color: "var(--text-muted)", fontSize: 12.5, marginBottom: 12 }}>
+            {isPublic
+              ? "Áudio público — todos os usuários têm acesso. Torne-o privado para restringir."
+              : "Quando privado, apenas admin e os usuários abaixo têm acesso."}
+          </p>
+
+          {loadingAccess ? (
+            <p style={{ color: "var(--text-muted)", fontSize: 13 }}>Carregando…</p>
+          ) : accessUsers.length === 0 ? (
+            <p style={{ color: "var(--text-muted)", fontSize: 13 }}>
+              Nenhum usuário com acesso explícito.
+              {!isPublic && " Adicione usuários acima para liberar o acesso."}
+            </p>
+          ) : (
+            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+              {accessUsers.map((u) => (
+                <div key={u.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 12px", background: "var(--bg-input)", borderRadius: 10 }}>
+                  <div style={{ flex: 1 }}>
+                    <p style={{ fontSize: 13.5, fontWeight: 600 }}>{u.name}</p>
+                    <p style={{ fontSize: 12, color: "var(--text-muted)" }}>{u.email}</p>
+                  </div>
+                  <button onClick={() => revokeAccess(u.id)} title="Revogar acesso"
+                    style={{ background: "transparent", border: "none", color: "var(--text-muted)", display: "flex", padding: 4, borderRadius: 6, cursor: "pointer" }}
+                    onMouseEnter={(e) => (e.currentTarget.style.color = "var(--danger)")}
+                    onMouseLeave={(e) => (e.currentTarget.style.color = "var(--text-muted)")}
+                  >
+                    <UserMinus size={15} />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Excluir */}
       <div style={{ marginTop: 18, display: "flex", justifyContent: "flex-end" }}>
@@ -446,10 +594,10 @@ function ColorInput({ value, onChange }: { value: string; onChange: (v: string) 
   return (
     <>
       <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 8 }}>
-        <input type="color" value={value.length === 7 ? value : "#7C3AED"} onChange={(e) => onChange(e.target.value)}
+        <input type="color" value={value.length === 7 ? value : "#22C55E"} onChange={(e) => onChange(e.target.value)}
           style={{ width: 34, height: 34, padding: 2, borderRadius: 8, border: "1px solid var(--border)", background: "var(--bg-elevated)", cursor: "pointer", flexShrink: 0 }}
         />
-        <input type="text" value={value} maxLength={7} placeholder="#7C3AED"
+        <input type="text" value={value} maxLength={7} placeholder="#22C55E"
           onChange={(e) => { if (/^#[0-9A-Fa-f]{0,6}$/.test(e.target.value)) onChange(e.target.value); }}
           style={{ flex: 1, background: "var(--bg-elevated)", border: "1px solid var(--border)", borderRadius: 8, padding: "7px 10px", color: "var(--text)", fontSize: 13, outline: "none", fontFamily: "monospace" }}
         />
@@ -477,5 +625,5 @@ const btnOutline: React.CSSProperties = {
 const iconOutlineBtn: React.CSSProperties = {
   background: "transparent", border: "1px solid var(--border)",
   color: "var(--text-muted)", borderRadius: 10, padding: "7px 10px",
-  display: "flex", alignItems: "center",
+  display: "flex", alignItems: "center", cursor: "pointer",
 };

@@ -1,5 +1,4 @@
-// Prisma schema — banco de dados do CDN Fitz
-// Usa PostgreSQL (criado no EasyPanel)
+// Prisma schema — CDN Adriel
 
 generator client {
   provider      = "prisma-client-js"
@@ -11,29 +10,56 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-model Audio {
-  id          String   @id @default(cuid())
-  title       String
-  fileName    String // nome do arquivo salvo em /public/audios
-  mimeType    String
-  size        Int // tamanho em bytes
-  durationSec Int? // duração em segundos (opcional)
-  isPublic    Boolean  @default(false)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+enum Role {
+  ADMIN
+  MEMBER
+}
 
-  // relação muitos-para-muitos com Tag
-  tags Tag[] @relation("AudioTags")
+model User {
+  id           String        @id @default(cuid())
+  name         String
+  email        String        @unique
+  passwordHash String
+  role         Role          @default(MEMBER)
+  isActive     Boolean       @default(true)
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+
+  audioAccess  AudioAccess[]
+}
+
+model Audio {
+  id          String        @id @default(cuid())
+  title       String
+  fileName    String
+  mimeType    String
+  size        Int
+  durationSec Int?
+  isPublic    Boolean       @default(false)
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  tags        Tag[]         @relation("AudioTags")
+  accessUsers AudioAccess[]
 
   @@index([createdAt])
+}
+
+// Acesso explícito de um usuário a um áudio privado
+model AudioAccess {
+  audioId String
+  userId  String
+  audio   Audio  @relation(fields: [audioId], references: [id], onDelete: Cascade)
+  user    User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([audioId, userId])
 }
 
 model Tag {
   id        String   @id @default(cuid())
   name      String   @unique
-  color     String   @default("#7C3AED")
+  color     String   @default("#22C55E")
   createdAt DateTime @default(now())
 
-  // relação muitos-para-muitos com Audio
-  audios Audio[] @relation("AudioTags")
+  audios    Audio[]  @relation("AudioTags")
 }

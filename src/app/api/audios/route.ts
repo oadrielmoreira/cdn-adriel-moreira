@@ -1,24 +1,44 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { isAuthenticated } from "@/lib/auth";
+import { getSession } from "@/lib/auth";
 
 export const runtime = "nodejs";
 
-// GET /api/audios            -> lista todos (requer login)
-// GET /api/audios?tag=NOME   -> filtra por nome de tag
+// GET /api/audios            -> lista áudios acessíveis ao usuário logado
+// GET /api/audios?tag=NOME   -> filtra por tag
 export async function GET(req: NextRequest) {
-  if (!(await isAuthenticated())) {
-    return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
+  const session = await getSession();
+  if (!session) {
+    return NextResponse.json({ error: "Não autorizado." }, { status: 401 });
   }
 
   const tag = req.nextUrl.searchParams.get("tag")?.trim();
+  const tagFilter = tag ? { tags: { some: { name: tag } } } : undefined;
 
-  const audios = await prisma.audio.findMany({
-    where: tag
-      ? { tags: { some: { name: tag } } }
-      : undefined,
-    orderBy: { createdAt: "desc" },
-    include: { tags: true },
-  });
-  return NextResponse.json({ audios });
+  // Admin vê tudo; membros só veem áudios com acesso explícito
+  const accessFilter =
+    session.role === "ADMIN"
+      ? undefined
+      : session.userId
+      ? { accessUsers: { some: { userId: session.userId } } }
+      : { id: "never" }; // sessão antiga sem userId — retorna vazio
+
+  const where =
+    accessFilter || tagFilter
+      ? { AND: [accessFilter, tagFilter].filter(Boolean) }
+      : undefined;
+
+  try {
+    const audios = await prisma.audio.findMany({
+      where,
+      orderBy: { createdAt: "desc" },
+      include: { tags: true },
+    });
+    return NextResponse.json({ audios });
+  } catch {
+    return NextResponse.json(
+      { error: "Erro ao buscar áudios. Verifique a conexão com o banco." },
+      { status: 503 }
+    );
+  }
 }

@@ -3,30 +3,32 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Logo } from "@/components/Logo";
-import { Lock, LoaderCircle } from "lucide-react";
+import { Lock, UserCircle2, LoaderCircle, Eye, EyeOff } from "lucide-react";
 
 export default function LoginPage() {
   const router = useRouter();
+  const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
   async function handleSubmit() {
-    if (!password) return;
+    if (!username || !password) return;
     setLoading(true);
     setError("");
     try {
       const res = await fetch("/api/auth", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ password }),
+        body: JSON.stringify({ email: username.trim(), password }),
       });
       if (res.ok) {
         router.push("/home");
         router.refresh();
       } else {
         const data = await res.json().catch(() => ({}));
-        setError(data.error || "Senha incorreta");
+        setError(data.error || "Credenciais inválidas.");
         setLoading(false);
       }
     } catch {
@@ -34,6 +36,17 @@ export default function LoginPage() {
       setLoading(false);
     }
   }
+
+  const inputBase = (hasError: boolean): React.CSSProperties => ({
+    width: "100%",
+    background: "var(--bg-input)",
+    border: `1px solid ${hasError ? "var(--danger)" : "var(--border)"}`,
+    borderRadius: 12,
+    padding: "13px 14px 13px 42px",
+    color: "var(--text)",
+    fontSize: 15,
+    outline: "none",
+  });
 
   return (
     <main
@@ -63,56 +76,65 @@ export default function LoginPage() {
           <Logo size={32} />
         </div>
 
-        <h1
-          style={{
-            fontSize: 20,
-            fontWeight: 700,
-            textAlign: "center",
-            marginBottom: 6,
-          }}
-        >
+        <h1 style={{ fontSize: 20, fontWeight: 700, textAlign: "center", marginBottom: 6 }}>
           Acesso à Central
         </h1>
-        <p
-          style={{
-            color: "var(--text-muted)",
-            fontSize: 14,
-            textAlign: "center",
-            marginBottom: 26,
-          }}
-        >
-          Digite a senha para continuar
+        <p style={{ color: "var(--text-muted)", fontSize: 14, textAlign: "center", marginBottom: 26 }}>
+          Entre com seu usuário e senha
         </p>
 
+        {/* Usuário */}
+        <div style={{ position: "relative", marginBottom: 12 }}>
+          <UserCircle2
+            size={18}
+            style={{ position: "absolute", left: 14, top: "50%", transform: "translateY(-50%)", color: "var(--text-muted)" }}
+          />
+          <input
+            type="text"
+            value={username}
+            autoFocus
+            placeholder="Usuário"
+            autoComplete="username"
+            onChange={(e) => setUsername(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && handleSubmit()}
+            style={inputBase(!!error)}
+          />
+        </div>
+
+        {/* Senha */}
         <div style={{ position: "relative" }}>
           <Lock
             size={18}
-            style={{
-              position: "absolute",
-              left: 14,
-              top: "50%",
-              transform: "translateY(-50%)",
-              color: "var(--text-muted)",
-            }}
+            style={{ position: "absolute", left: 14, top: "50%", transform: "translateY(-50%)", color: "var(--text-muted)" }}
           />
           <input
-            type="password"
+            type={showPassword ? "text" : "password"}
             value={password}
-            autoFocus
             placeholder="Senha"
+            autoComplete="current-password"
             onChange={(e) => setPassword(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && handleSubmit()}
-            style={{
-              width: "100%",
-              background: "var(--bg-input)",
-              border: `1px solid ${error ? "var(--danger)" : "var(--border)"}`,
-              borderRadius: 12,
-              padding: "13px 14px 13px 42px",
-              color: "var(--text)",
-              fontSize: 15,
-              outline: "none",
-            }}
+            style={{ ...inputBase(!!error), paddingRight: 44 }}
           />
+          <button
+            type="button"
+            onClick={() => setShowPassword((v) => !v)}
+            tabIndex={-1}
+            style={{
+              position: "absolute",
+              right: 13,
+              top: "50%",
+              transform: "translateY(-50%)",
+              background: "none",
+              border: "none",
+              color: "var(--text-muted)",
+              cursor: "pointer",
+              display: "flex",
+              padding: 2,
+            }}
+          >
+            {showPassword ? <EyeOff size={17} /> : <Eye size={17} />}
+          </button>
         </div>
 
         {error && (
@@ -123,7 +145,7 @@ export default function LoginPage() {
 
         <button
           onClick={handleSubmit}
-          disabled={loading}
+          disabled={loading || !username || !password}
           style={{
             width: "100%",
             marginTop: 18,
@@ -138,21 +160,18 @@ export default function LoginPage() {
             alignItems: "center",
             justifyContent: "center",
             gap: 8,
-            opacity: loading ? 0.7 : 1,
+            opacity: loading || !username || !password ? 0.6 : 1,
             transition: "background 0.15s",
+            cursor: loading || !username || !password ? "not-allowed" : "pointer",
           }}
-          onMouseEnter={(e) =>
-            (e.currentTarget.style.background = "var(--primary-hover)")
-          }
-          onMouseLeave={(e) =>
-            (e.currentTarget.style.background = "var(--primary)")
-          }
+          onMouseEnter={(e) => {
+            if (!loading) e.currentTarget.style.background = "var(--primary-hover)";
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.background = "var(--primary)";
+          }}
         >
-          {loading ? (
-            <LoaderCircle size={18} className="spin" />
-          ) : (
-            "Entrar"
-          )}
+          {loading ? <LoaderCircle size={18} className="spin" /> : "Entrar"}
         </button>
       </div>
 

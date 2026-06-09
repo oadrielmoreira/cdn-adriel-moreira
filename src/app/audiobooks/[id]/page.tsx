@@ -1,5 +1,6 @@
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
+import { getSession } from "@/lib/auth";
 import { TopBar } from "@/components/TopBar";
 import { AudioDetailClient } from "./AudioDetailClient";
 
@@ -11,17 +12,34 @@ export default async function AudioDetailPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
+  const session = await getSession();
+  if (!session) redirect("/login");
+
   const audio = await prisma.audio.findUnique({
     where: { id },
-    include: { tags: { orderBy: { name: "asc" } } },
+    include: {
+      tags: { orderBy: { name: "asc" } },
+      accessUsers: true,
+    },
   });
   if (!audio) notFound();
+
+  const isAdmin = session.role === "ADMIN";
+
+  // Membros precisam de acesso explícito — isPublic não dá acesso na plataforma
+  if (!isAdmin) {
+    const hasAccess =
+      session.userId &&
+      audio.accessUsers.some((a) => a.userId === session.userId);
+    if (!hasAccess) redirect("/audiobooks");
+  }
 
   return (
     <>
       <TopBar />
       <main style={{ maxWidth: 760, margin: "0 auto", padding: "36px 24px" }}>
         <AudioDetailClient
+          isAdmin={isAdmin}
           audio={{
             id: audio.id,
             title: audio.title,

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/auth";
+import { Prisma } from "@prisma/client";
 
 export const runtime = "nodejs";
 
@@ -13,20 +14,25 @@ export async function GET(req: NextRequest) {
   }
 
   const tag = req.nextUrl.searchParams.get("tag")?.trim();
-  const tagFilter = tag ? { tags: { some: { name: tag } } } : undefined;
+
+  const filters: Prisma.AudioWhereInput[] = [];
 
   // Admin vê tudo; membros só veem áudios com acesso explícito
-  const accessFilter =
-    session.role === "ADMIN"
-      ? undefined
-      : session.userId
-      ? { accessUsers: { some: { userId: session.userId } } }
-      : { id: "never" }; // sessão antiga sem userId — retorna vazio
+  if (session.role !== "ADMIN") {
+    if (session.userId) {
+      filters.push({ accessUsers: { some: { userId: session.userId } } });
+    } else {
+      // Sessão antiga sem userId — não retorna nada
+      filters.push({ id: "never" });
+    }
+  }
 
-  const where =
-    accessFilter || tagFilter
-      ? { AND: [accessFilter, tagFilter].filter(Boolean) }
-      : undefined;
+  if (tag) {
+    filters.push({ tags: { some: { name: tag } } });
+  }
+
+  const where: Prisma.AudioWhereInput | undefined =
+    filters.length > 0 ? { AND: filters } : undefined;
 
   try {
     const audios = await prisma.audio.findMany({

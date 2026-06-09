@@ -18,6 +18,7 @@ type AudioData = {
   fileName: string;
   isPublic: boolean;
   durationSec: number | null;
+  driveId: string | null;
   tags: TagData[];
 };
 
@@ -68,7 +69,9 @@ export function AudioDetailClient({
   const [userSearch, setUserSearch] = useState("");
   const accessPickerRef = useRef<HTMLDivElement>(null);
 
-  const audioSrc = `/api/stream/${audio.fileName}`;
+  const audioSrc = audio.driveId
+    ? `https://drive.google.com/file/d/${audio.driveId}/preview`
+    : `/api/stream/${audio.fileName}`;
   const shareUrl =
     typeof window !== "undefined"
       ? `${window.location.origin}/share/${audio.id}`
@@ -316,7 +319,20 @@ export function AudioDetailClient({
         )}
       </div>
 
-      <AudioPlayer src={audioSrc} title={title} onDuration={saveDuration} />
+      {audio.driveId ? (
+        <div style={{ borderRadius: 14, overflow: "hidden", background: "var(--bg-elevated)", border: "1px solid var(--border)" }}>
+          <iframe
+            src={audioSrc}
+            width="100%"
+            height="80"
+            allow="autoplay"
+            title={title}
+            style={{ border: "none", display: "block" }}
+          />
+        </div>
+      ) : (
+        <AudioPlayer src={audioSrc} title={title} onDuration={saveDuration} />
+      )}
 
       {/* ── Tags ── */}
       <div style={{ marginTop: 20, background: "var(--bg-elevated)", border: "1px solid var(--border)", borderRadius: 16, padding: 20 }}>

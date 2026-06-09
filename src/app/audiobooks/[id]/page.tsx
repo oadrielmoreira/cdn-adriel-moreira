@@ -48,6 +48,7 @@ export default async function AudioDetailPage({
             fileName: audio.fileName,
             isPublic: audio.isPublic,
             durationSec: audio.durationSec,
+            driveId: audio.driveId ?? null,
             tags: audio.tags.map((t) => ({ id: t.id, name: t.name, color: t.color })),
           }}
         />

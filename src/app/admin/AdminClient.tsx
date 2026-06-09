@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import {
   UserPlus, Pencil, Trash2, Check, X, ShieldCheck,
-  User, LoaderCircle, Eye, EyeOff, Upload, Headphones,
+  User, LoaderCircle, Eye, EyeOff, Upload, Library,
 } from "lucide-react";
 
 type UserRow = {
@@ -353,7 +353,7 @@ export function AdminClient() {
                       transition: "all 0.15s",
                     }}
                   >
-                    {u.canUpload ? <><Upload size={13} /> Upload</> : <><Headphones size={13} /> Ouvir</>}
+                    {u.canUpload ? <><Upload size={13} /> Upload</> : <><Library size={13} /> Ouvir</>}
                   </button>
                 )}
 
@@ -398,7 +398,7 @@ function PermToggle({ value, onChange }: { value: boolean; onChange: (v: boolean
           cursor: "pointer",
         }}
       >
-        <Headphones size={14} /> Somente consumir
+        <Library size={14} /> Somente consumir
       </button>
       <button
         type="button"

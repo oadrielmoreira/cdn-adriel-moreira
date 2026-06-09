@@ -32,14 +32,14 @@ COPY --from=builder /app/public ./public
 COPY --from=builder /app/.next/standalone ./
 COPY --from=builder /app/.next/static ./.next/static
 COPY --from=builder /app/prisma ./prisma
-COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
-COPY --from=builder /app/node_modules/@prisma ./node_modules/@prisma
-COPY --from=builder /app/node_modules/prisma ./node_modules/prisma
-COPY --from=builder /app/node_modules/.bin ./node_modules/.bin
+
+# node_modules COMPLETO (necessário para o CLI do Prisma rodar o db push no startup).
+# Vem depois do standalone para sobrescrever a versão reduzida que o Next gera.
+COPY --from=builder /app/node_modules ./node_modules
 
 ENV PATH="/app/node_modules/.bin:${PATH}"
 
 EXPOSE 3000
 
-# aplica migrações pendentes e sobe o servidor
-CMD ["sh", "-c", "npx prisma db push --skip-generate && node server.js"]
+# sincroniza o schema com o banco e sobe o servidor
+CMD ["sh", "-c", "node node_modules/prisma/build/index.js db push --skip-generate && node server.js"]

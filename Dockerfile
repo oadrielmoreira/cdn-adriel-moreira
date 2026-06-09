@@ -41,5 +41,5 @@ ENV PATH="/app/node_modules/.bin:${PATH}"
 
 EXPOSE 3000
 
-# sincroniza o schema com o banco e sobe o servidor
-CMD ["sh", "-c", "node node_modules/prisma/build/index.js db push --skip-generate && node server.js"]
+# sincroniza o schema, cria admin se não existir, e sobe o servidor
+CMD ["sh", "-c", "node node_modules/prisma/build/index.js db push --skip-generate && node_modules/.bin/tsx prisma/seed.ts && node server.js"]

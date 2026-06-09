@@ -1,7 +1,15 @@
 import { PrismaClient } from "@prisma/client";
-import { hashPassword } from "../src/lib/password";
+import { scrypt, randomBytes } from "crypto";
+import { promisify } from "util";
 
+const scryptAsync = promisify(scrypt);
 const prisma = new PrismaClient();
+
+async function hashPassword(plain: string): Promise<string> {
+  const salt = randomBytes(16).toString("hex");
+  const buf = (await scryptAsync(plain, salt, 64)) as Buffer;
+  return `${buf.toString("hex")}.${salt}`;
+}
 
 async function main() {
   const email = process.env.APP_USER ?? "adrielmoreira";

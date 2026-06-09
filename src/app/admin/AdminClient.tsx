@@ -159,9 +159,9 @@ export function AdminClient() {
                 placeholder="Nome completo" style={inputStyle} />
             </div>
             <div>
-              <label style={labelStyle}>Email</label>
-              <input type="email" value={createForm.email} onChange={(e) => setCreateForm((f) => ({ ...f, email: e.target.value }))}
-                placeholder="email@exemplo.com" style={inputStyle} />
+              <label style={labelStyle}>Usuário (login)</label>
+              <input type="text" value={createForm.email} onChange={(e) => setCreateForm((f) => ({ ...f, email: e.target.value }))}
+                placeholder="ex: joaosilva" autoComplete="off" style={inputStyle} />
             </div>
             <div>
               <label style={labelStyle}>Senha (mín. 6 caracteres)</label>
@@ -217,7 +217,7 @@ export function AdminClient() {
                       style={inputStyle} />
                   </div>
                   <div>
-                    <label style={labelStyle}>Email</label>
+                    <label style={labelStyle}>Usuário (login)</label>
                     <input value={u.email} disabled style={{ ...inputStyle, opacity: 0.5 }} />
                   </div>
                   <div>
@@ -300,7 +300,7 @@ export function AdminClient() {
                       </span>
                     )}
                   </div>
-                  <p style={{ color: "var(--text-muted)", fontSize: 13, marginTop: 2 }}>{u.email}</p>
+                  <p style={{ color: "var(--text-muted)", fontSize: 13, marginTop: 2 }}>@{u.email}</p>
                 </div>
 
                 {/* Ações */}

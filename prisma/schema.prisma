@@ -22,5 +22,18 @@ model Audio {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
+  // relação muitos-para-muitos com Tag
+  tags Tag[] @relation("AudioTags")
+
   @@index([createdAt])
+}
+
+model Tag {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  color     String   @default("#7C3AED")
+  createdAt DateTime @default(now())
+
+  // relação muitos-para-muitos com Audio
+  audios Audio[] @relation("AudioTags")
 }

@@ -37,6 +37,8 @@ export function AudioPlayer({ src, title, onDuration }: Props) {
   const [volume, setVolume] = useState(1);
   const [muted, setMuted] = useState(false);
   const [speed, setSpeed] = useState(1);
+  const [editingSpeed, setEditingSpeed] = useState(false);
+  const [speedInput, setSpeedInput] = useState("");
 
   // ── Web Audio + visualização ──────────────────────────────────────────────
   const setupAudioGraph = useCallback(() => {
@@ -182,6 +184,19 @@ export function AudioPlayer({ src, title, onDuration }: Props) {
     });
   }
 
+  function openSpeedEdit() {
+    setSpeedInput(speed.toFixed(2));
+    setEditingSpeed(true);
+  }
+
+  function commitSpeedEdit() {
+    const val = parseFloat(speedInput.replace(",", "."));
+    if (!isNaN(val)) {
+      setSpeed(Math.min(MAX_SPEED, Math.max(MIN_SPEED, Math.round(val * 100) / 100)));
+    }
+    setEditingSpeed(false);
+  }
+
   const progress = duration ? (current / duration) * 100 : 0;
   const volPct = (muted ? 0 : volume) * 100;
 
@@ -282,14 +297,40 @@ export function AudioPlayer({ src, title, onDuration }: Props) {
           >
             −
           </button>
-          <div style={{
-            display: "flex", alignItems: "center", gap: 4,
-            fontSize: 13, fontWeight: 700, minWidth: 60,
-            justifyContent: "center", color: "var(--text)",
-          }}>
-            <Gauge size={13} style={{ color: "var(--primary)", flexShrink: 0 }} />
-            {speed.toFixed(2)}x
-          </div>
+          {editingSpeed ? (
+            <input
+              autoFocus
+              value={speedInput}
+              onChange={(e) => setSpeedInput(e.target.value)}
+              onBlur={commitSpeedEdit}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") commitSpeedEdit();
+                if (e.key === "Escape") setEditingSpeed(false);
+              }}
+              style={{
+                width: 64, textAlign: "center", fontSize: 13, fontWeight: 700,
+                background: "var(--bg-input)", border: "1px solid var(--primary)",
+                borderRadius: 8, padding: "4px 6px", color: "var(--text)", outline: "none",
+              }}
+            />
+          ) : (
+            <button
+              onClick={openSpeedEdit}
+              title="Clique para digitar a velocidade"
+              style={{
+                display: "flex", alignItems: "center", gap: 4,
+                fontSize: 13, fontWeight: 700, minWidth: 60,
+                justifyContent: "center", color: "var(--text)",
+                background: "transparent", border: "none", cursor: "text",
+                padding: "4px 6px", borderRadius: 8,
+              }}
+              onMouseEnter={(e) => (e.currentTarget.style.background = "var(--bg-input)")}
+              onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
+            >
+              <Gauge size={13} style={{ color: "var(--primary)", flexShrink: 0 }} />
+              {speed.toFixed(2)}x
+            </button>
+          )}
           <button
             onClick={() => changeSpeed(0.05)}
             disabled={speed >= MAX_SPEED}

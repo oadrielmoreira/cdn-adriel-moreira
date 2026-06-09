@@ -45,10 +45,10 @@ export default async function AudioDetailPage({
           audio={{
             id: audio.id,
             title: audio.title,
-            fileName: audio.fileName,
+            fileName: audio.driveId ? "" : audio.fileName,
             isPublic: audio.isPublic,
             durationSec: audio.durationSec,
-            driveId: audio.driveId ?? null,
+            isDrive: !!audio.driveId,
             tags: audio.tags.map((t) => ({ id: t.id, name: t.name, color: t.color })),
           }}
         />

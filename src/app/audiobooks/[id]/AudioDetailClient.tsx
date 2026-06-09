@@ -18,7 +18,7 @@ type AudioData = {
   fileName: string;
   isPublic: boolean;
   durationSec: number | null;
-  driveId: string | null;
+  isDrive: boolean;
   tags: TagData[];
 };
 
@@ -69,8 +69,8 @@ export function AudioDetailClient({
   const [userSearch, setUserSearch] = useState("");
   const accessPickerRef = useRef<HTMLDivElement>(null);
 
-  const audioSrc = audio.driveId
-    ? `/api/drive/stream/${audio.driveId}`
+  const audioSrc = audio.isDrive
+    ? `/api/drive/stream/${audio.id}`
     : `/api/stream/${audio.fileName}`;
   const shareUrl =
     typeof window !== "undefined"
@@ -322,7 +322,7 @@ export function AudioDetailClient({
       <AudioPlayer
         src={audioSrc}
         title={title}
-        onDuration={audio.driveId ? undefined : saveDuration}
+        onDuration={audio.isDrive ? undefined : saveDuration}
       />
 
       {/* ── Tags ── */}

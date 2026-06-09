@@ -17,7 +17,7 @@ type Audio = {
   size: number;
   durationSec: number | null;
   isPublic: boolean;
-  driveId: string | null;
+  isDrive: boolean;
   createdAt: string;
   tags: AudioTag[];
 };
@@ -36,12 +36,12 @@ export function AudiobooksList({ canManage }: { canManage: boolean }) {
   const [tagFilterSearch, setTagFilterSearch] = useState("");
   const tagFilterRef = useRef<HTMLDivElement>(null);
 
-  // Modal Drive
+  // Modal incorporação de áudio
   const [showModal, setShowModal] = useState(false);
   const [iframeCode, setIframeCode] = useState("");
   const [fetching, setFetching] = useState(false);
   const [fetchError, setFetchError] = useState("");
-  const [driveInfo, setDriveInfo] = useState<{ driveId: string; title: string } | null>(null);
+  const [driveFound, setDriveFound] = useState(false);
   const [driveTitle, setDriveTitle] = useState("");
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState("");
@@ -82,7 +82,7 @@ export function AudiobooksList({ canManage }: { canManage: boolean }) {
     setShowModal(true);
     setIframeCode("");
     setFetchError("");
-    setDriveInfo(null);
+    setDriveFound(false);
     setDriveTitle("");
     setSaveError("");
   }
@@ -91,7 +91,7 @@ export function AudiobooksList({ canManage }: { canManage: boolean }) {
     setShowModal(false);
     setIframeCode("");
     setFetchError("");
-    setDriveInfo(null);
+    setDriveFound(false);
     setDriveTitle("");
     setSaveError("");
   }
@@ -100,7 +100,7 @@ export function AudiobooksList({ canManage }: { canManage: boolean }) {
     if (!iframeCode.trim()) return;
     setFetching(true);
     setFetchError("");
-    setDriveInfo(null);
+    setDriveFound(false);
     try {
       const res = await fetch("/api/drive/info", {
         method: "POST",
@@ -111,7 +111,7 @@ export function AudiobooksList({ canManage }: { canManage: boolean }) {
       if (!res.ok) {
         setFetchError(data.error || "Erro ao buscar informações do arquivo.");
       } else {
-        setDriveInfo(data);
+        setDriveFound(true);
         setDriveTitle(data.title || "");
       }
     } catch {
@@ -122,14 +122,14 @@ export function AudiobooksList({ canManage }: { canManage: boolean }) {
   }
 
   async function saveDriveAudio() {
-    if (!driveInfo || !driveTitle.trim()) return;
+    if (!driveFound || !driveTitle.trim()) return;
     setSaving(true);
     setSaveError("");
     try {
       const res = await fetch("/api/audios", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ title: driveTitle.trim(), driveId: driveInfo.driveId }),
+        body: JSON.stringify({ title: driveTitle.trim(), iframeCode }),
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
@@ -335,11 +335,7 @@ export function AudiobooksList({ canManage }: { canManage: boolean }) {
                           color: "var(--text-muted)", fontSize: 12.5, marginTop: 3,
                           display: "flex", alignItems: "center", gap: 6,
                         }}>
-                          {a.driveId ? (
-                            <span style={{ color: "#1a73e8", fontWeight: 500 }}>Google Drive</span>
-                          ) : (
-                            humanSize(a.size)
-                          )}
+                          {!a.isDrive && humanSize(a.size)}
                           {canManage && (
                             <>
                               <span>·</span>
@@ -379,7 +375,7 @@ export function AudiobooksList({ canManage }: { canManage: boolean }) {
         </div>
       </main>
 
-      {/* Modal: Adicionar áudio via Google Drive */}
+      {/* Modal: Adicionar áudio */}
       {showModal && (
         <div
           style={{
@@ -398,13 +394,13 @@ export function AudiobooksList({ canManage }: { canManage: boolean }) {
               <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                 <div style={{
                   width: 38, height: 38, borderRadius: 10,
-                  background: "#1a73e820", color: "#1a73e8",
+                  background: "var(--primary-soft)", color: "var(--primary)",
                   display: "flex", alignItems: "center", justifyContent: "center",
                 }}>
                   <Headphones size={18} />
                 </div>
                 <div>
-                  <p style={{ fontWeight: 700, fontSize: 16 }}>Adicionar via Google Drive</p>
+                  <p style={{ fontWeight: 700, fontSize: 16 }}>Adicionar áudio</p>
                   <p style={{ color: "var(--text-muted)", fontSize: 12.5 }}>Cole o código de incorporação</p>
                 </div>
               </div>
@@ -421,8 +417,8 @@ export function AudiobooksList({ canManage }: { canManage: boolean }) {
             </label>
             <textarea
               value={iframeCode}
-              onChange={(e) => { setIframeCode(e.target.value); setDriveInfo(null); setFetchError(""); }}
-              placeholder={'<iframe src="https://drive.google.com/file/d/..." ...></iframe>'}
+              onChange={(e) => { setIframeCode(e.target.value); setDriveFound(false); setFetchError(""); }}
+              placeholder="<iframe src=...></iframe>"
               rows={3}
               style={{
                 width: "100%", background: "var(--bg-input)", border: "1px solid var(--border)",
@@ -434,7 +430,7 @@ export function AudiobooksList({ canManage }: { canManage: boolean }) {
               <p style={{ color: "var(--danger)", fontSize: 13, marginTop: 6 }}>{fetchError}</p>
             )}
 
-            {!driveInfo && (
+            {!driveFound && (
               <button
                 onClick={fetchDriveInfo}
                 disabled={fetching || !iframeCode.trim()}
@@ -452,19 +448,8 @@ export function AudiobooksList({ canManage }: { canManage: boolean }) {
               </button>
             )}
 
-            {driveInfo && (
+            {driveFound && (
               <>
-                <div style={{ marginTop: 14, borderRadius: 10, overflow: "hidden", border: "1px solid var(--border)" }}>
-                  <iframe
-                    src={`https://drive.google.com/file/d/${driveInfo.driveId}/preview`}
-                    width="100%"
-                    height="80"
-                    allow="autoplay"
-                    title="Preview"
-                    style={{ border: "none", display: "block" }}
-                  />
-                </div>
-
                 <label style={{ display: "block", fontSize: 13, fontWeight: 600, marginTop: 14, marginBottom: 6, color: "var(--text-muted)" }}>
                   Nome do áudio
                 </label>
@@ -499,7 +484,7 @@ export function AudiobooksList({ canManage }: { canManage: boolean }) {
                     {saving ? <><LoaderCircle size={16} className="spin" /> Salvando…</> : "Adicionar"}
                   </button>
                   <button
-                    onClick={() => { setDriveInfo(null); setDriveTitle(""); setIframeCode(""); setFetchError(""); }}
+                    onClick={() => { setDriveFound(false); setDriveTitle(""); setIframeCode(""); setFetchError(""); }}
                     style={{
                       background: "transparent", border: "1px solid var(--border)",
                       color: "var(--text-muted)", borderRadius: 10, padding: "11px 18px",

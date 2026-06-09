@@ -20,10 +20,7 @@ export async function POST(req: NextRequest) {
   );
   if (!match) {
     return NextResponse.json(
-      {
-        error:
-          "Código inválido. Cole o código de incorporação do Google Drive (iframe).",
-      },
+      { error: "Código inválido. Verifique o código de incorporação e tente novamente." },
       { status: 400 }
     );
   }
@@ -55,5 +52,6 @@ export async function POST(req: NextRequest) {
     // título vazio — usuário preenche manualmente
   }
 
-  return NextResponse.json({ driveId, title });
+  // Não retornamos o ID do arquivo para o cliente
+  return NextResponse.json({ title });
 }

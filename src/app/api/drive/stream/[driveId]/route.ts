@@ -1,14 +1,26 @@
 import { NextRequest, NextResponse } from "next/server";
+import { prisma } from "@/lib/prisma";
+import { getSession } from "@/lib/auth";
 
 export const runtime = "nodejs";
 
-// GET /api/drive/stream/[driveId]
-// Proxy para streamar áudio do Google Drive, necessário para Web Audio API (CORS)
+// GET /api/drive/stream/[driveId]  (driveId param is actually the audio record ID)
+// Proxy para streamar áudio, necessário para Web Audio API (CORS)
 export async function GET(
   req: NextRequest,
   { params }: { params: Promise<{ driveId: string }> }
 ) {
-  const { driveId } = await params;
+  const session = await getSession();
+  if (!session) return new NextResponse("Não autorizado", { status: 401 });
+
+  const { driveId: audioId } = await params;
+  const audio = await prisma.audio.findUnique({
+    where: { id: audioId },
+    select: { driveId: true },
+  });
+  if (!audio?.driveId) return new NextResponse("Não encontrado", { status: 404 });
+  const driveId = audio.driveId;
+
   const rangeHeader = req.headers.get("range");
 
   const url = `https://drive.usercontent.google.com/download?id=${driveId}&export=download&authuser=0&confirm=t`;
@@ -23,11 +35,11 @@ export async function GET(
   try {
     res = await fetch(url, { headers: upstreamHeaders, redirect: "follow" });
   } catch {
-    return new NextResponse("Erro ao conectar com Google Drive", { status: 502 });
+    return new NextResponse("Erro ao conectar ao serviço de streaming", { status: 502 });
   }
 
   if (!res.ok && res.status !== 206) {
-    return new NextResponse("Arquivo não encontrado no Google Drive", {
+    return new NextResponse("Arquivo de áudio não encontrado", {
       status: res.status,
     });
   }

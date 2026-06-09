@@ -5,7 +5,7 @@ import { Prisma } from "@prisma/client";
 
 export const runtime = "nodejs";
 
-// POST /api/audios  { title, driveId }  — cria entrada a partir do Google Drive
+// POST /api/audios  { title, iframeCode }  — cria entrada de áudio incorporado
 export async function POST(req: NextRequest) {
   const session = await getSession();
   if (!session) {
@@ -19,15 +19,24 @@ export async function POST(req: NextRequest) {
   const body = await req.json().catch(() => ({}));
   const title =
     typeof body.title === "string" ? body.title.trim() : "";
-  const driveId =
-    typeof body.driveId === "string" ? body.driveId.trim() : "";
+  const iframeCode =
+    typeof body.iframeCode === "string" ? body.iframeCode.trim() : "";
 
-  if (!title || !driveId) {
+  if (!title || !iframeCode) {
     return NextResponse.json(
-      { error: "Título e link do Drive são obrigatórios." },
+      { error: "Título e código de incorporação são obrigatórios." },
       { status: 400 }
     );
   }
+
+  const match = iframeCode.match(/drive\.google\.com\/file\/d\/([a-zA-Z0-9_-]+)/);
+  if (!match) {
+    return NextResponse.json(
+      { error: "Código de incorporação inválido." },
+      { status: 400 }
+    );
+  }
+  const driveId = match[1];
 
   try {
     const audio = await prisma.audio.create({
@@ -79,11 +88,16 @@ export async function GET(req: NextRequest) {
     filters.length > 0 ? { AND: filters } : undefined;
 
   try {
-    const audios = await prisma.audio.findMany({
+    const rows = await prisma.audio.findMany({
       where,
       orderBy: { createdAt: "desc" },
       include: { tags: true },
     });
+    const audios = rows.map(({ driveId, fileName, ...rest }) => ({
+      ...rest,
+      fileName: driveId ? "" : fileName,
+      isDrive: !!driveId,
+    }));
     return NextResponse.json({ audios });
   } catch {
     return NextResponse.json(

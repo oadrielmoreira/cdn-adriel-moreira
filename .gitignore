@@ -1,0 +1,8 @@
+node_modules
+.next
+.env
+.env.local
+/public/audios/*
+!/public/audios/.gitkeep
+*.log
+.DS_Store

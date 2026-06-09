@@ -25,6 +25,7 @@ export default async function AudioDetailPage({
   if (!audio) notFound();
 
   const isAdmin = session.role === "ADMIN";
+  const canManage = isAdmin || (session.canUpload === true);
 
   // Membros precisam de acesso explícito — isPublic não dá acesso na plataforma
   if (!isAdmin) {
@@ -40,6 +41,7 @@ export default async function AudioDetailPage({
       <main style={{ maxWidth: 760, margin: "0 auto", padding: "36px 24px" }}>
         <AudioDetailClient
           isAdmin={isAdmin}
+          canManage={canManage}
           audio={{
             id: audio.id,
             title: audio.title,

@@ -32,6 +32,7 @@ export default function AudiobooksPage() {
   const [activeTag, setActiveTag] = useState<string | null>(null);
   const [showTagFilter, setShowTagFilter] = useState(false);
   const [tagFilterSearch, setTagFilterSearch] = useState("");
+  const [canManage, setCanManage] = useState(false);
   const inputRef = useRef<HTMLInputElement | null>(null);
   const tagFilterRef = useRef<HTMLDivElement>(null);
 
@@ -69,6 +70,12 @@ export default function AudiobooksPage() {
 
   useEffect(() => {
     load();
+    fetch("/api/me")
+      .then((r) => r.json())
+      .then((d) => {
+        if (d.role === "ADMIN" || d.canUpload === true) setCanManage(true);
+      })
+      .catch(() => {});
   }, []);
 
   async function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
@@ -147,56 +154,60 @@ export default function AudiobooksPage() {
           </div>
 
           {/* Botão de upload */}
-          <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 6 }}>
-            <button
-              onClick={() => inputRef.current?.click()}
-              disabled={uploading}
-              style={{
-                background: "var(--primary)",
-                color: "white",
-                border: "none",
-                borderRadius: 12,
-                padding: "12px 18px",
-                fontWeight: 600,
-                fontSize: 14,
-                display: "flex",
-                alignItems: "center",
-                gap: 8,
-                opacity: uploading ? 0.7 : 1,
-                cursor: uploading ? "not-allowed" : "pointer",
-              }}
-            >
-              {uploading ? (
-                <>
-                  <LoaderCircle size={18} className="spin" /> Enviando… {progress}%
-                </>
-              ) : (
-                <>
-                  <Upload size={18} /> Subir áudio
-                </>
-              )}
-            </button>
-            {uploading && (
-              <div style={{ width: 180, height: 4, background: "var(--border)", borderRadius: 4, overflow: "hidden" }}>
-                <div
+          {canManage && (
+            <>
+              <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 6 }}>
+                <button
+                  onClick={() => inputRef.current?.click()}
+                  disabled={uploading}
                   style={{
-                    height: "100%",
-                    width: `${progress}%`,
                     background: "var(--primary)",
-                    borderRadius: 4,
-                    transition: "width 0.2s",
+                    color: "white",
+                    border: "none",
+                    borderRadius: 12,
+                    padding: "12px 18px",
+                    fontWeight: 600,
+                    fontSize: 14,
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 8,
+                    opacity: uploading ? 0.7 : 1,
+                    cursor: uploading ? "not-allowed" : "pointer",
                   }}
-                />
+                >
+                  {uploading ? (
+                    <>
+                      <LoaderCircle size={18} className="spin" /> Enviando… {progress}%
+                    </>
+                  ) : (
+                    <>
+                      <Upload size={18} /> Subir áudio
+                    </>
+                  )}
+                </button>
+                {uploading && (
+                  <div style={{ width: 180, height: 4, background: "var(--border)", borderRadius: 4, overflow: "hidden" }}>
+                    <div
+                      style={{
+                        height: "100%",
+                        width: `${progress}%`,
+                        background: "var(--primary)",
+                        borderRadius: 4,
+                        transition: "width 0.2s",
+                      }}
+                    />
+                  </div>
+                )}
               </div>
-            )}
-          </div>
-          <input
-            ref={inputRef}
-            type="file"
-            accept="audio/*"
-            hidden
-            onChange={handleFile}
-          />
+              <input
+                ref={inputRef}
+                type="file"
+                accept="audio/*"
+                hidden
+                onChange={handleFile}
+              />
+            </>
+          )}
         </div>
 
         {error && (
@@ -313,16 +324,18 @@ export default function AudiobooksPage() {
           ) : audios.length === 0 ? (
             <div
               style={{
-                border: "1px dashed var(--border)",
+                border: “1px dashed var(--border)”,
                 borderRadius: 16,
                 padding: 48,
-                textAlign: "center",
-                color: "var(--text-muted)",
+                textAlign: “center”,
+                color: “var(--text-muted)”,
               }}
             >
               <Music size={32} style={{ opacity: 0.5 }} />
               <p style={{ marginTop: 12 }}>
-                Nenhum áudio ainda. Clique em “Subir áudio” para começar.
+                {canManage
+                  ? 'Nenhum áudio ainda. Clique em “Subir áudio” para começar.'
+                  : “Nenhum áudio disponível para você no momento.”}
               </p>
             </div>
           ) : (
@@ -393,15 +406,19 @@ export default function AudiobooksPage() {
                         }}
                       >
                         {humanSize(a.size)}
-                        <span>·</span>
-                        {a.isPublic ? (
-                          <span style={{ display: "flex", alignItems: "center", gap: 3, color: "var(--success)" }}>
-                            <Globe size={12} /> Público
-                          </span>
-                        ) : (
-                          <span style={{ display: "flex", alignItems: "center", gap: 3 }}>
-                            <Lock size={12} /> Privado
-                          </span>
+                        {canManage && (
+                          <>
+                            <span>·</span>
+                            {a.isPublic ? (
+                              <span style={{ display: "flex", alignItems: "center", gap: 3, color: "var(--success)" }}>
+                                <Globe size={12} /> Público
+                              </span>
+                            ) : (
+                              <span style={{ display: "flex", alignItems: "center", gap: 3 }}>
+                                <Lock size={12} /> Privado
+                              </span>
+                            )}
+                          </>
                         )}
                       </p>
                       {a.tags.length > 0 && (

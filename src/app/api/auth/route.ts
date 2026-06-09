@@ -19,7 +19,7 @@ export async function POST(req: NextRequest) {
 
   if (!email || !password) {
     return NextResponse.json(
-      { error: "Email e senha são obrigatórios." },
+      { error: "Usuário e senha são obrigatórios." },
       { status: 400 }
     );
   }
@@ -40,6 +40,7 @@ export async function POST(req: NextRequest) {
     email: user.email,
     name: user.name,
     role: user.role,
+    canUpload: user.role === "ADMIN" ? true : user.canUpload,
   });
 
   return NextResponse.json({ ok: true });

@@ -9,6 +9,7 @@ export type SessionPayload = {
   email: string;
   name: string;
   role: "ADMIN" | "MEMBER";
+  canUpload: boolean;
 };
 
 function getSecret(): Uint8Array {

@@ -31,9 +31,11 @@ type PickerMode = "add" | "manage" | "create";
 export function AudioDetailClient({
   audio,
   isAdmin,
+  canManage,
 }: {
   audio: AudioData;
   isAdmin: boolean;
+  canManage: boolean;
 }) {
   const router = useRouter();
   const [isPublic, setIsPublic] = useState(audio.isPublic);
@@ -293,7 +295,7 @@ export function AudioDetailClient({
 
       {/* Título editável */}
       <div style={{ marginBottom: 16, display: "flex", alignItems: "center", gap: 10 }}>
-        {editingTitle ? (
+        {canManage && editingTitle ? (
           <>
             <input autoFocus value={titleDraft} onChange={(e) => setTitleDraft(e.target.value)}
               onKeyDown={(e) => { if (e.key === "Enter") saveTitle(); if (e.key === "Escape") setEditingTitle(false); }}
@@ -305,9 +307,11 @@ export function AudioDetailClient({
         ) : (
           <>
             <h1 style={{ fontSize: 22, fontWeight: 700, flex: 1 }}>{title}</h1>
-            <button onClick={() => { setTitleDraft(title); setEditingTitle(true); }} title="Renomear" style={iconOutlineBtn}>
-              <Pencil size={15} />
-            </button>
+            {canManage && (
+              <button onClick={() => { setTitleDraft(title); setEditingTitle(true); }} title="Renomear" style={iconOutlineBtn}>
+                <Pencil size={15} />
+              </button>
+            )}
           </>
         )}
       </div>
@@ -321,143 +325,149 @@ export function AudioDetailClient({
             <Tag size={15} style={{ color: "var(--text-muted)" }} /> Tags
           </div>
 
-          <div style={{ position: "relative" }} ref={pickerRef}>
-            <button onClick={openTagPicker} style={{ ...iconOutlineBtn, padding: "6px 10px", display: "flex", alignItems: "center", gap: 5, fontSize: 13 }}>
-              <Plus size={14} /> Adicionar
-            </button>
+          {canManage && (
+            <div style={{ position: "relative" }} ref={pickerRef}>
+              <button onClick={openTagPicker} style={{ ...iconOutlineBtn, padding: "6px 10px", display: "flex", alignItems: "center", gap: 5, fontSize: 13 }}>
+                <Plus size={14} /> Adicionar
+              </button>
 
-            {showTagPicker && (
-              <div style={{ position: "absolute", top: "calc(100% + 6px)", right: 0, background: "var(--bg-input)", border: "1px solid var(--border)", borderRadius: 12, padding: 8, minWidth: 240, zIndex: 30, boxShadow: "0 10px 30px rgba(0,0,0,0.4)" }}>
-                {/* Abas */}
-                <div style={{ display: "flex", gap: 4, marginBottom: 8 }}>
-                  {(["add", "manage"] as PickerMode[]).map((mode) => (
-                    <button key={mode} onClick={() => { setPickerMode(mode); setTagSearch(""); setEditingTagId(null); }}
-                      style={{ flex: 1, padding: "5px 0", borderRadius: 8, border: "none", fontSize: 12.5, fontWeight: 600, background: pickerMode === mode ? "var(--primary)" : "var(--bg-elevated)", color: pickerMode === mode ? "white" : "var(--text-muted)" }}>
-                      {mode === "add" ? "Adicionar" : "Gerenciar"}
-                    </button>
-                  ))}
-                </div>
-
-                {/* Modo: Adicionar */}
-                {pickerMode === "add" && (
-                  <>
-                    <input autoFocus placeholder="Buscar tag…" value={tagSearch} onChange={(e) => setTagSearch(e.target.value)}
-                      style={{ width: "100%", background: "var(--bg-elevated)", border: "1px solid var(--border)", borderRadius: 8, padding: "7px 10px", color: "var(--text)", fontSize: 13, outline: "none", boxSizing: "border-box", marginBottom: 4 }}
-                    />
-                    {loadingTags ? (
-                      <p style={{ color: "var(--text-muted)", fontSize: 13, padding: "6px 10px" }}>Carregando…</p>
-                    ) : filteredAvailable.length === 0 ? (
-                      <p style={{ color: "var(--text-muted)", fontSize: 13, padding: "6px 10px" }}>
-                        {tagSearch ? "Nenhuma tag encontrada." : allTags.length === 0 ? "Nenhuma tag ainda." : "Todas as tags já adicionadas."}
-                      </p>
-                    ) : (
-                      <div style={{ maxHeight: 180, overflowY: "auto" }}>
-                        {filteredAvailable.map((tag) => (
-                          <button key={tag.id} onClick={() => { addTag(tag); closePicker(); }}
-                            style={{ display: "flex", alignItems: "center", gap: 8, width: "100%", background: "transparent", border: "none", color: "var(--text)", padding: "7px 10px", borderRadius: 8, fontSize: 13.5 }}
-                            onMouseEnter={(e) => (e.currentTarget.style.background = "var(--bg-elevated)")}
-                            onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
-                          >
-                            <span style={{ width: 10, height: 10, borderRadius: "50%", background: tag.color, flexShrink: 0 }} />
-                            {tag.name}
-                          </button>
-                        ))}
-                      </div>
-                    )}
-                    <button onClick={() => { setPickerMode("create"); setTagSearch(""); }}
-                      style={{ display: "flex", alignItems: "center", gap: 7, width: "100%", background: "transparent", border: "none", color: "var(--primary)", padding: "7px 10px", borderRadius: 8, fontSize: 13.5, fontWeight: 600, borderTop: "1px solid var(--border)", marginTop: 4 }}>
-                      <Plus size={13} /> Nova tag…
-                    </button>
-                  </>
-                )}
-
-                {/* Modo: Criar */}
-                {pickerMode === "create" && (
-                  <div style={{ padding: "2px 0" }}>
-                    <input autoFocus placeholder="Nome da tag" value={newTagName} onChange={(e) => setNewTagName(e.target.value)}
-                      onKeyDown={(e) => { if (e.key === "Enter") createAndAddTag(); if (e.key === "Escape") setPickerMode("add"); }}
-                      style={{ width: "100%", background: "var(--bg-elevated)", border: "1px solid var(--border)", borderRadius: 8, padding: "7px 10px", color: "var(--text)", fontSize: 13, outline: "none", boxSizing: "border-box" }}
-                    />
-                    <ColorInput value={newTagColor} onChange={setNewTagColor} />
-                    <div style={{ display: "flex", gap: 6, marginTop: 8 }}>
-                      <button onClick={createAndAddTag} disabled={savingTag || !newTagName.trim() || newTagColor.length !== 7}
-                        style={{ ...btnPrimary, flex: 1, justifyContent: "center", opacity: savingTag || !newTagName.trim() ? 0.6 : 1 }}>
-                        Criar
+              {showTagPicker && (
+                <div style={{ position: "absolute", top: "calc(100% + 6px)", right: 0, background: "var(--bg-input)", border: "1px solid var(--border)", borderRadius: 12, padding: 8, minWidth: 240, zIndex: 30, boxShadow: "0 10px 30px rgba(0,0,0,0.4)" }}>
+                  {/* Abas */}
+                  <div style={{ display: "flex", gap: 4, marginBottom: 8 }}>
+                    {(["add", "manage"] as PickerMode[]).map((mode) => (
+                      <button key={mode} onClick={() => { setPickerMode(mode); setTagSearch(""); setEditingTagId(null); }}
+                        style={{ flex: 1, padding: "5px 0", borderRadius: 8, border: "none", fontSize: 12.5, fontWeight: 600, background: pickerMode === mode ? "var(--primary)" : "var(--bg-elevated)", color: pickerMode === mode ? "white" : "var(--text-muted)" }}>
+                        {mode === "add" ? "Adicionar" : "Gerenciar"}
                       </button>
-                      <button onClick={() => setPickerMode("add")} style={btnOutline}>Voltar</button>
-                    </div>
+                    ))}
                   </div>
-                )}
 
-                {/* Modo: Gerenciar */}
-                {pickerMode === "manage" && (
-                  <>
-                    <input autoFocus placeholder="Buscar tag…" value={tagSearch} onChange={(e) => setTagSearch(e.target.value)}
-                      style={{ width: "100%", background: "var(--bg-elevated)", border: "1px solid var(--border)", borderRadius: 8, padding: "7px 10px", color: "var(--text)", fontSize: 13, outline: "none", boxSizing: "border-box", marginBottom: 4 }}
-                    />
-                    {loadingTags ? (
-                      <p style={{ color: "var(--text-muted)", fontSize: 13, padding: "6px 10px" }}>Carregando…</p>
-                    ) : filteredAll.length === 0 ? (
-                      <p style={{ color: "var(--text-muted)", fontSize: 13, padding: "6px 10px" }}>
-                        {tagSearch ? "Nenhuma tag encontrada." : "Nenhuma tag criada ainda."}
-                      </p>
-                    ) : (
-                      <div style={{ maxHeight: 260, overflowY: "auto" }}>
-                        {filteredAll.map((tag) =>
-                          editingTagId === tag.id ? (
-                            <div key={tag.id} style={{ padding: "6px 4px", borderBottom: "1px solid var(--border)" }}>
-                              <input autoFocus value={editTagName} onChange={(e) => setEditTagName(e.target.value)}
-                                onKeyDown={(e) => { if (e.key === "Enter") saveTagEdit(tag.id); if (e.key === "Escape") setEditingTagId(null); }}
-                                style={{ width: "100%", background: "var(--bg-elevated)", border: "1px solid var(--border)", borderRadius: 8, padding: "6px 10px", color: "var(--text)", fontSize: 13, outline: "none", boxSizing: "border-box" }}
-                              />
-                              <ColorInput value={editTagColor} onChange={setEditTagColor} />
-                              <div style={{ display: "flex", gap: 6, marginTop: 6 }}>
-                                <button onClick={() => saveTagEdit(tag.id)}
-                                  style={{ ...btnPrimary, flex: 1, justifyContent: "center", fontSize: 13, padding: "6px 0" }}>
-                                  Salvar
-                                </button>
-                                <button onClick={() => deleteTag(tag.id)}
-                                  style={{ background: "transparent", border: "1px solid var(--danger)", color: "var(--danger)", borderRadius: 8, padding: "6px 10px", fontSize: 13 }}>
-                                  Excluir
-                                </button>
-                                <button onClick={() => setEditingTagId(null)} style={{ ...btnOutline, fontSize: 13, padding: "6px 10px" }}>✕</button>
-                              </div>
-                            </div>
-                          ) : (
-                            <div key={tag.id}
-                              style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 8px", borderRadius: 8 }}
+                  {/* Modo: Adicionar */}
+                  {pickerMode === "add" && (
+                    <>
+                      <input autoFocus placeholder="Buscar tag…" value={tagSearch} onChange={(e) => setTagSearch(e.target.value)}
+                        style={{ width: "100%", background: "var(--bg-elevated)", border: "1px solid var(--border)", borderRadius: 8, padding: "7px 10px", color: "var(--text)", fontSize: 13, outline: "none", boxSizing: "border-box", marginBottom: 4 }}
+                      />
+                      {loadingTags ? (
+                        <p style={{ color: "var(--text-muted)", fontSize: 13, padding: "6px 10px" }}>Carregando…</p>
+                      ) : filteredAvailable.length === 0 ? (
+                        <p style={{ color: "var(--text-muted)", fontSize: 13, padding: "6px 10px" }}>
+                          {tagSearch ? "Nenhuma tag encontrada." : allTags.length === 0 ? "Nenhuma tag ainda." : "Todas as tags já adicionadas."}
+                        </p>
+                      ) : (
+                        <div style={{ maxHeight: 180, overflowY: "auto" }}>
+                          {filteredAvailable.map((tag) => (
+                            <button key={tag.id} onClick={() => { addTag(tag); closePicker(); }}
+                              style={{ display: "flex", alignItems: "center", gap: 8, width: "100%", background: "transparent", border: "none", color: "var(--text)", padding: "7px 10px", borderRadius: 8, fontSize: 13.5 }}
                               onMouseEnter={(e) => (e.currentTarget.style.background = "var(--bg-elevated)")}
                               onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
                             >
                               <span style={{ width: 10, height: 10, borderRadius: "50%", background: tag.color, flexShrink: 0 }} />
-                              <span style={{ flex: 1, fontSize: 13.5, color: "var(--text)" }}>{tag.name}</span>
-                              <button onClick={() => { setEditingTagId(tag.id); setEditTagName(tag.name); setEditTagColor(tag.color); }}
-                                title="Editar" style={{ background: "transparent", border: "none", color: "var(--text-muted)", padding: "2px 4px", borderRadius: 6, display: "flex" }}>
-                                <Pencil size={13} />
-                              </button>
-                            </div>
-                          )
-                        )}
+                              {tag.name}
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                      <button onClick={() => { setPickerMode("create"); setTagSearch(""); }}
+                        style={{ display: "flex", alignItems: "center", gap: 7, width: "100%", background: "transparent", border: "none", color: "var(--primary)", padding: "7px 10px", borderRadius: 8, fontSize: 13.5, fontWeight: 600, borderTop: "1px solid var(--border)", marginTop: 4 }}>
+                        <Plus size={13} /> Nova tag…
+                      </button>
+                    </>
+                  )}
+
+                  {/* Modo: Criar */}
+                  {pickerMode === "create" && (
+                    <div style={{ padding: "2px 0" }}>
+                      <input autoFocus placeholder="Nome da tag" value={newTagName} onChange={(e) => setNewTagName(e.target.value)}
+                        onKeyDown={(e) => { if (e.key === "Enter") createAndAddTag(); if (e.key === "Escape") setPickerMode("add"); }}
+                        style={{ width: "100%", background: "var(--bg-elevated)", border: "1px solid var(--border)", borderRadius: 8, padding: "7px 10px", color: "var(--text)", fontSize: 13, outline: "none", boxSizing: "border-box" }}
+                      />
+                      <ColorInput value={newTagColor} onChange={setNewTagColor} />
+                      <div style={{ display: "flex", gap: 6, marginTop: 8 }}>
+                        <button onClick={createAndAddTag} disabled={savingTag || !newTagName.trim() || newTagColor.length !== 7}
+                          style={{ ...btnPrimary, flex: 1, justifyContent: "center", opacity: savingTag || !newTagName.trim() ? 0.6 : 1 }}>
+                          Criar
+                        </button>
+                        <button onClick={() => setPickerMode("add")} style={btnOutline}>Voltar</button>
                       </div>
-                    )}
-                  </>
-                )}
-              </div>
-            )}
-          </div>
+                    </div>
+                  )}
+
+                  {/* Modo: Gerenciar */}
+                  {pickerMode === "manage" && (
+                    <>
+                      <input autoFocus placeholder="Buscar tag…" value={tagSearch} onChange={(e) => setTagSearch(e.target.value)}
+                        style={{ width: "100%", background: "var(--bg-elevated)", border: "1px solid var(--border)", borderRadius: 8, padding: "7px 10px", color: "var(--text)", fontSize: 13, outline: "none", boxSizing: "border-box", marginBottom: 4 }}
+                      />
+                      {loadingTags ? (
+                        <p style={{ color: "var(--text-muted)", fontSize: 13, padding: "6px 10px" }}>Carregando…</p>
+                      ) : filteredAll.length === 0 ? (
+                        <p style={{ color: "var(--text-muted)", fontSize: 13, padding: "6px 10px" }}>
+                          {tagSearch ? "Nenhuma tag encontrada." : "Nenhuma tag criada ainda."}
+                        </p>
+                      ) : (
+                        <div style={{ maxHeight: 260, overflowY: "auto" }}>
+                          {filteredAll.map((tag) =>
+                            editingTagId === tag.id ? (
+                              <div key={tag.id} style={{ padding: "6px 4px", borderBottom: "1px solid var(--border)" }}>
+                                <input autoFocus value={editTagName} onChange={(e) => setEditTagName(e.target.value)}
+                                  onKeyDown={(e) => { if (e.key === "Enter") saveTagEdit(tag.id); if (e.key === "Escape") setEditingTagId(null); }}
+                                  style={{ width: "100%", background: "var(--bg-elevated)", border: "1px solid var(--border)", borderRadius: 8, padding: "6px 10px", color: "var(--text)", fontSize: 13, outline: "none", boxSizing: "border-box" }}
+                                />
+                                <ColorInput value={editTagColor} onChange={setEditTagColor} />
+                                <div style={{ display: "flex", gap: 6, marginTop: 6 }}>
+                                  <button onClick={() => saveTagEdit(tag.id)}
+                                    style={{ ...btnPrimary, flex: 1, justifyContent: "center", fontSize: 13, padding: "6px 0" }}>
+                                    Salvar
+                                  </button>
+                                  <button onClick={() => deleteTag(tag.id)}
+                                    style={{ background: "transparent", border: "1px solid var(--danger)", color: "var(--danger)", borderRadius: 8, padding: "6px 10px", fontSize: 13 }}>
+                                    Excluir
+                                  </button>
+                                  <button onClick={() => setEditingTagId(null)} style={{ ...btnOutline, fontSize: 13, padding: "6px 10px" }}>✕</button>
+                                </div>
+                              </div>
+                            ) : (
+                              <div key={tag.id}
+                                style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 8px", borderRadius: 8 }}
+                                onMouseEnter={(e) => (e.currentTarget.style.background = "var(--bg-elevated)")}
+                                onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
+                              >
+                                <span style={{ width: 10, height: 10, borderRadius: "50%", background: tag.color, flexShrink: 0 }} />
+                                <span style={{ flex: 1, fontSize: 13.5, color: "var(--text)" }}>{tag.name}</span>
+                                <button onClick={() => { setEditingTagId(tag.id); setEditTagName(tag.name); setEditTagColor(tag.color); }}
+                                  title="Editar" style={{ background: "transparent", border: "none", color: "var(--text-muted)", padding: "2px 4px", borderRadius: 6, display: "flex" }}>
+                                  <Pencil size={13} />
+                                </button>
+                              </div>
+                            )
+                          )}
+                        </div>
+                      )}
+                    </>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
         </div>
 
         {tags.length === 0 ? (
-          <p style={{ color: "var(--text-muted)", fontSize: 13 }}>Sem tags. Clique em "Adicionar" para associar.</p>
+          <p style={{ color: "var(--text-muted)", fontSize: 13 }}>
+            {canManage ? 'Sem tags. Clique em "Adicionar" para associar.' : "Sem tags."}
+          </p>
         ) : (
           <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
             {tags.map((tag) => (
-              <span key={tag.id} style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "4px 10px 4px 8px", borderRadius: 999, background: tag.color + "22", border: `1px solid ${tag.color}55`, color: tag.color, fontSize: 13, fontWeight: 600 }}>
+              <span key={tag.id} style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: canManage ? "4px 10px 4px 8px" : "4px 10px", borderRadius: 999, background: tag.color + "22", border: `1px solid ${tag.color}55`, color: tag.color, fontSize: 13, fontWeight: 600 }}>
                 <span style={{ width: 8, height: 8, borderRadius: "50%", background: tag.color }} />
                 {tag.name}
-                <button onClick={() => removeTag(tag.id)} title="Remover" style={{ background: "transparent", border: "none", color: tag.color, padding: 0, display: "flex", cursor: "pointer" }}>
-                  <X size={13} />
-                </button>
+                {canManage && (
+                  <button onClick={() => removeTag(tag.id)} title="Remover" style={{ background: "transparent", border: "none", color: tag.color, padding: 0, display: "flex", cursor: "pointer" }}>
+                    <X size={13} />
+                  </button>
+                )}
               </span>
             ))}
           </div>
@@ -465,41 +475,43 @@ export function AudioDetailClient({
       </div>
 
       {/* ── Compartilhamento ── */}
-      <div style={{ marginTop: 16, background: "var(--bg-elevated)", border: "1px solid var(--border)", borderRadius: 16, padding: 20 }}>
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            {isPublic ? <Globe size={18} style={{ color: "var(--success)" }} /> : <Lock size={18} style={{ color: "var(--text-muted)" }} />}
-            <div>
-              <p style={{ fontWeight: 600, fontSize: 14.5 }}>
-                {isPublic ? "Link público ativado" : "Link público desativado"}
-              </p>
-              <p style={{ color: "var(--text-muted)", fontSize: 12.5 }}>
-                {isPublic
-                  ? "O link de compartilhamento funciona sem login"
-                  : "Somente usuários com acesso podem ouvir"}
-              </p>
+      {canManage && (
+        <div style={{ marginTop: 16, background: "var(--bg-elevated)", border: "1px solid var(--border)", borderRadius: 16, padding: 20 }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              {isPublic ? <Globe size={18} style={{ color: "var(--success)" }} /> : <Lock size={18} style={{ color: "var(--text-muted)" }} />}
+              <div>
+                <p style={{ fontWeight: 600, fontSize: 14.5 }}>
+                  {isPublic ? "Link público ativado" : "Link público desativado"}
+                </p>
+                <p style={{ color: "var(--text-muted)", fontSize: 12.5 }}>
+                  {isPublic
+                    ? "O link de compartilhamento funciona sem login"
+                    : "Somente usuários com acesso podem ouvir"}
+                </p>
+              </div>
             </div>
+            <button onClick={togglePublic} disabled={saving} aria-label="Alternar público/privado"
+              style={{ width: 50, height: 28, borderRadius: 999, border: "none", background: isPublic ? "var(--success)" : "var(--border)", position: "relative", transition: "background 0.2s", flexShrink: 0 }}>
+              <span style={{ position: "absolute", top: 3, left: isPublic ? 25 : 3, width: 22, height: 22, borderRadius: "50%", background: "white", transition: "left 0.2s" }} />
+            </button>
           </div>
-          <button onClick={togglePublic} disabled={saving} aria-label="Alternar público/privado"
-            style={{ width: 50, height: 28, borderRadius: 999, border: "none", background: isPublic ? "var(--success)" : "var(--border)", position: "relative", transition: "background 0.2s", flexShrink: 0 }}>
-            <span style={{ position: "absolute", top: 3, left: isPublic ? 25 : 3, width: 22, height: 22, borderRadius: "50%", background: "white", transition: "left 0.2s" }} />
-          </button>
+          <div style={{ marginTop: 16, display: "flex", gap: 8, opacity: isPublic ? 1 : 0.55 }}>
+            <input readOnly value={shareUrl} onFocus={(e) => e.currentTarget.select()}
+              style={{ flex: 1, background: "var(--bg-input)", border: "1px solid var(--border)", borderRadius: 10, padding: "11px 14px", color: "var(--text)", fontSize: 13.5, outline: "none" }}
+            />
+            <button onClick={copyLink} style={{ background: copied ? "var(--success)" : "var(--primary)", color: "white", border: "none", borderRadius: 10, padding: "0 16px", fontWeight: 600, fontSize: 14, display: "flex", alignItems: "center", gap: 7, transition: "background 0.2s" }}>
+              {copied ? <><Check size={16} /> Copiado</> : <><Copy size={16} /> Copiar</>}
+            </button>
+          </div>
+          {!isPublic && (
+            <p style={{ color: "var(--text-muted)", fontSize: 12, marginTop: 8 }}>
+              Ative o link público para que qualquer pessoa possa acessar sem login.
+              O acesso na plataforma é controlado separadamente pelo painel abaixo.
+            </p>
+          )}
         </div>
-        <div style={{ marginTop: 16, display: "flex", gap: 8, opacity: isPublic ? 1 : 0.55 }}>
-          <input readOnly value={shareUrl} onFocus={(e) => e.currentTarget.select()}
-            style={{ flex: 1, background: "var(--bg-input)", border: "1px solid var(--border)", borderRadius: 10, padding: "11px 14px", color: "var(--text)", fontSize: 13.5, outline: "none" }}
-          />
-          <button onClick={copyLink} style={{ background: copied ? "var(--success)" : "var(--primary)", color: "white", border: "none", borderRadius: 10, padding: "0 16px", fontWeight: 600, fontSize: 14, display: "flex", alignItems: "center", gap: 7, transition: "background 0.2s" }}>
-            {copied ? <><Check size={16} /> Copiado</> : <><Copy size={16} /> Copiar</>}
-          </button>
-        </div>
-        {!isPublic && (
-          <p style={{ color: "var(--text-muted)", fontSize: 12, marginTop: 8 }}>
-            Ative o link público para que qualquer pessoa possa acessar sem login.
-            O acesso na plataforma é controlado separadamente pelo painel abaixo.
-          </p>
-        )}
-      </div>
+      )}
 
       {/* ── Controle de Acesso (admin only) ── */}
       {isAdmin && (
@@ -580,11 +592,13 @@ export function AudioDetailClient({
       )}
 
       {/* Excluir */}
-      <div style={{ marginTop: 18, display: "flex", justifyContent: "flex-end" }}>
-        <button onClick={remove} style={{ background: "transparent", border: "1px solid var(--border)", color: "var(--danger)", borderRadius: 10, padding: "9px 14px", fontSize: 13.5, display: "flex", alignItems: "center", gap: 7 }}>
-          <Trash2 size={15} /> Excluir áudio
-        </button>
-      </div>
+      {canManage && (
+        <div style={{ marginTop: 18, display: "flex", justifyContent: "flex-end" }}>
+          <button onClick={remove} style={{ background: "transparent", border: "1px solid var(--border)", color: "var(--danger)", borderRadius: 10, padding: "9px 14px", fontSize: 13.5, display: "flex", alignItems: "center", gap: 7 }}>
+            <Trash2 size={15} /> Excluir áudio
+          </button>
+        </div>
+      )}
     </div>
   );
 }

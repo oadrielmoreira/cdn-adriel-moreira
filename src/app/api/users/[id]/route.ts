@@ -5,7 +5,7 @@ import { hashPassword } from "@/lib/password";
 
 export const runtime = "nodejs";
 
-// PATCH /api/users/[id]  { name?, role?, isActive?, password? }
+// PATCH /api/users/[id]  { name?, role?, isActive?, canUpload?, password? }
 export async function PATCH(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -27,6 +27,9 @@ export async function PATCH(
   if (typeof body.isActive === "boolean") {
     data.isActive = body.isActive;
   }
+  if (typeof body.canUpload === "boolean") {
+    data.canUpload = body.canUpload;
+  }
   if (typeof body.password === "string" && body.password.length >= 6) {
     data.passwordHash = await hashPassword(body.password);
   }
@@ -35,7 +38,10 @@ export async function PATCH(
     const user = await prisma.user.update({
       where: { id },
       data,
-      select: { id: true, name: true, email: true, role: true, isActive: true },
+      select: {
+        id: true, name: true, email: true,
+        role: true, isActive: true, canUpload: true,
+      },
     });
     return NextResponse.json({ user });
   } catch {

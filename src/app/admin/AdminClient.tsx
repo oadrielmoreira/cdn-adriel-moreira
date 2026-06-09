@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import {
   UserPlus, Pencil, Trash2, Check, X, ShieldCheck,
-  User, LoaderCircle, KeyRound, Eye, EyeOff,
+  User, LoaderCircle, Eye, EyeOff, Upload, Headphones,
 } from "lucide-react";
 
 type UserRow = {
@@ -12,6 +12,7 @@ type UserRow = {
   email: string;
   role: "ADMIN" | "MEMBER";
   isActive: boolean;
+  canUpload: boolean;
   createdAt: string;
 };
 
@@ -20,12 +21,14 @@ type CreateForm = {
   email: string;
   password: string;
   role: "ADMIN" | "MEMBER";
+  canUpload: boolean;
 };
 
 type EditForm = {
   name: string;
   role: "ADMIN" | "MEMBER";
   isActive: boolean;
+  canUpload: boolean;
   password: string;
 };
 
@@ -36,13 +39,13 @@ export function AdminClient() {
   const [creating, setCreating] = useState(false);
   const [createError, setCreateError] = useState("");
   const [createForm, setCreateForm] = useState<CreateForm>({
-    name: "", email: "", password: "", role: "MEMBER",
+    name: "", email: "", password: "", role: "MEMBER", canUpload: false,
   });
   const [showCreatePw, setShowCreatePw] = useState(false);
 
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editForm, setEditForm] = useState<EditForm>({
-    name: "", role: "MEMBER", isActive: true, password: "",
+    name: "", role: "MEMBER", isActive: true, canUpload: false, password: "",
   });
   const [editError, setEditError] = useState("");
   const [saving, setSaving] = useState(false);
@@ -84,7 +87,7 @@ export function AdminClient() {
 
   function startEdit(u: UserRow) {
     setEditingId(u.id);
-    setEditForm({ name: u.name, role: u.role, isActive: u.isActive, password: "" });
+    setEditForm({ name: u.name, role: u.role, isActive: u.isActive, canUpload: u.canUpload, password: "" });
     setEditError("");
     setShowEditPw(false);
   }
@@ -101,6 +104,7 @@ export function AdminClient() {
       name: editForm.name.trim(),
       role: editForm.role,
       isActive: editForm.isActive,
+      canUpload: editForm.canUpload,
     };
     if (editForm.password) body.password = editForm.password;
 
@@ -117,6 +121,16 @@ export function AdminClient() {
       setEditError(data.error || "Erro ao salvar.");
     }
     setSaving(false);
+  }
+
+  async function toggleCanUpload(u: UserRow) {
+    const next = !u.canUpload;
+    setUsers((prev) => prev.map((x) => (x.id === u.id ? { ...x, canUpload: next } : x)));
+    await fetch(`/api/users/${u.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ canUpload: next }),
+    });
   }
 
   async function deleteUser(id: string, name: string) {
@@ -184,6 +198,18 @@ export function AdminClient() {
               </select>
             </div>
           </div>
+
+          {/* Permissão de upload */}
+          <div style={{ marginTop: 12 }}>
+            <label style={labelStyle}>Permissão de arquivos</label>
+            <div style={{ display: "flex", gap: 8, marginTop: 4 }}>
+              <PermToggle
+                value={createForm.canUpload}
+                onChange={(v) => setCreateForm((f) => ({ ...f, canUpload: v }))}
+              />
+            </div>
+          </div>
+
           {createError && <p style={{ color: "var(--danger)", fontSize: 13, marginTop: 10 }}>{createError}</p>}
           <div style={{ display: "flex", gap: 10, marginTop: 16 }}>
             <button onClick={createUser} disabled={creating} style={{ ...btnPrimary, opacity: creating ? 0.7 : 1 }}>
@@ -251,6 +277,15 @@ export function AdminClient() {
                       </select>
                     </div>
                   </div>
+                  <div>
+                    <label style={labelStyle}>Permissão de arquivos</label>
+                    <div style={{ marginTop: 4 }}>
+                      <PermToggle
+                        value={editForm.canUpload}
+                        onChange={(v) => setEditForm((f) => ({ ...f, canUpload: v }))}
+                      />
+                    </div>
+                  </div>
                 </div>
                 {editError && <p style={{ color: "var(--danger)", fontSize: 13, marginTop: 10 }}>{editError}</p>}
                 <div style={{ display: "flex", gap: 10, marginTop: 14 }}>
@@ -303,6 +338,25 @@ export function AdminClient() {
                   <p style={{ color: "var(--text-muted)", fontSize: 13, marginTop: 2 }}>@{u.email}</p>
                 </div>
 
+                {/* Ícone de permissão (clicável para toggle rápido) */}
+                {u.role !== "ADMIN" && (
+                  <button
+                    onClick={() => toggleCanUpload(u)}
+                    title={u.canUpload ? "Administrar Conteúdo — clique para revogar" : "Somente consumir — clique para permitir upload"}
+                    style={{
+                      background: u.canUpload ? "var(--primary-soft)" : "var(--bg-input)",
+                      border: `1px solid ${u.canUpload ? "var(--primary)" : "var(--border)"}`,
+                      color: u.canUpload ? "var(--primary)" : "var(--text-muted)",
+                      borderRadius: 8, padding: "7px 10px",
+                      display: "flex", alignItems: "center", gap: 5,
+                      fontSize: 12, fontWeight: 600, cursor: "pointer",
+                      transition: "all 0.15s",
+                    }}
+                  >
+                    {u.canUpload ? <><Upload size={13} /> Upload</> : <><Headphones size={13} /> Ouvir</>}
+                  </button>
+                )}
+
                 {/* Ações */}
                 <div style={{ display: "flex", gap: 8, flexShrink: 0 }}>
                   <button onClick={() => startEdit(u)} title="Editar" style={iconBtn}>
@@ -325,6 +379,41 @@ export function AdminClient() {
         .spin { animation: spin 0.8s linear infinite; }
         @keyframes spin { to { transform: rotate(360deg); } }
       `}</style>
+    </div>
+  );
+}
+
+function PermToggle({ value, onChange }: { value: boolean; onChange: (v: boolean) => void }) {
+  return (
+    <div style={{ display: "flex", gap: 8 }}>
+      <button
+        type="button"
+        onClick={() => onChange(false)}
+        style={{
+          display: "flex", alignItems: "center", gap: 6,
+          padding: "8px 14px", borderRadius: 9, fontSize: 13, fontWeight: 600,
+          border: `1px solid ${!value ? "var(--primary)" : "var(--border)"}`,
+          background: !value ? "var(--primary-soft)" : "transparent",
+          color: !value ? "var(--primary)" : "var(--text-muted)",
+          cursor: "pointer",
+        }}
+      >
+        <Headphones size={14} /> Somente consumir
+      </button>
+      <button
+        type="button"
+        onClick={() => onChange(true)}
+        style={{
+          display: "flex", alignItems: "center", gap: 6,
+          padding: "8px 14px", borderRadius: 9, fontSize: 13, fontWeight: 600,
+          border: `1px solid ${value ? "var(--primary)" : "var(--border)"}`,
+          background: value ? "var(--primary-soft)" : "transparent",
+          color: value ? "var(--primary)" : "var(--text-muted)",
+          cursor: "pointer",
+        }}
+      >
+        <Upload size={14} /> Administrar Conteúdo
+      </button>
     </div>
   );
 }

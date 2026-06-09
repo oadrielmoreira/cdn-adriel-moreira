@@ -78,7 +78,7 @@ export function AdminClient() {
     if (res.ok) {
       setUsers((prev) => [...prev, data.user]);
       setShowCreate(false);
-      setCreateForm({ name: "", email: "", password: "", role: "MEMBER" });
+      setCreateForm({ name: "", email: "", password: "", role: "MEMBER", canUpload: false });
     } else {
       setCreateError(data.error || "Erro ao criar usuário.");
     }

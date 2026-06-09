@@ -2,7 +2,8 @@
 // Usa PostgreSQL (criado no EasyPanel)
 
 generator client {
-  provider = "prisma-client-js"
+  provider      = "prisma-client-js"
+  binaryTargets = ["native", "linux-musl-openssl-3.0.x"]
 }
 
 datasource db {
@@ -13,22 +14,13 @@ datasource db {
 model Audio {
   id          String   @id @default(cuid())
   title       String
-  fileName    String
+  fileName    String // nome do arquivo salvo em /public/audios
   mimeType    String
-  size        Int
-  durationSec Int?
+  size        Int // tamanho em bytes
+  durationSec Int? // duração em segundos (opcional)
   isPublic    Boolean  @default(false)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
-  tags        Tag[]    @relation("AudioTags")
 
   @@index([createdAt])
-}
-
-model Tag {
-  id        String   @id @default(cuid())
-  name      String   @unique
-  color     String   @default("#7C3AED")
-  audios    Audio[]  @relation("AudioTags")
-  createdAt DateTime @default(now())
 }

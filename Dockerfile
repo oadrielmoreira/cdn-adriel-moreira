@@ -34,8 +34,12 @@ COPY --from=builder /app/.next/static ./.next/static
 COPY --from=builder /app/prisma ./prisma
 COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
 COPY --from=builder /app/node_modules/@prisma ./node_modules/@prisma
+COPY --from=builder /app/node_modules/prisma ./node_modules/prisma
+COPY --from=builder /app/node_modules/.bin ./node_modules/.bin
+
+ENV PATH="/app/node_modules/.bin:${PATH}"
 
 EXPOSE 3000
 
 # aplica migrações pendentes e sobe o servidor
-CMD ["sh", "-c", "npx prisma migrate deploy && node server.js"]
+CMD ["sh", "-c", "npx prisma db push --skip-generate && node server.js"]

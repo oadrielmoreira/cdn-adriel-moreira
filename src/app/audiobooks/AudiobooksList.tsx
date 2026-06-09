@@ -4,8 +4,8 @@ import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { TopBar } from "@/components/TopBar";
 import {
-  Plus, Music, Lock, Globe, Tag, ChevronDown, X,
-  Search, HardDriveUpload, LoaderCircle,
+  Plus, Headphones, Lock, Globe, Tag, ChevronDown, X,
+  Search, LoaderCircle,
 } from "lucide-react";
 
 type AudioTag = { id: string; name: string; color: string };
@@ -317,12 +317,12 @@ export function AudiobooksList({ canManage }: { canManage: boolean }) {
                     >
                       <div style={{
                         width: 46, height: 46, borderRadius: 11,
-                        background: a.driveId ? "#1a73e820" : "var(--primary-soft)",
-                        color: a.driveId ? "#1a73e8" : "var(--primary)",
+                        background: "var(--primary-soft)",
+                        color: "var(--primary)",
                         display: "flex", alignItems: "center", justifyContent: "center",
                         flexShrink: 0,
                       }}>
-                        {a.driveId ? <HardDriveUpload size={20} /> : <Music size={20} />}
+                        <Headphones size={20} />
                       </div>
                       <div style={{ minWidth: 0, flex: 1 }}>
                         <p style={{
@@ -401,7 +401,7 @@ export function AudiobooksList({ canManage }: { canManage: boolean }) {
                   background: "#1a73e820", color: "#1a73e8",
                   display: "flex", alignItems: "center", justifyContent: "center",
                 }}>
-                  <HardDriveUpload size={18} />
+                  <Headphones size={18} />
                 </div>
                 <div>
                   <p style={{ fontWeight: 700, fontSize: 16 }}>Adicionar via Google Drive</p>

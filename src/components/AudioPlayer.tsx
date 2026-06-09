@@ -2,23 +2,18 @@
 
 import { useEffect, useRef, useState, useCallback } from "react";
 import {
-  Play,
-  Pause,
-  SkipBack,
-  SkipForward,
-  Volume2,
-  VolumeX,
-  Gauge,
+  Play, Pause, SkipBack, SkipForward,
+  Volume2, VolumeX, Gauge,
 } from "lucide-react";
 
 type Props = {
   src: string;
   title: string;
-  /** chamado quando descobrimos a duração real, para salvar no banco */
   onDuration?: (sec: number) => void;
 };
 
-const SPEEDS = [0.25, 0.5, 0.75, 1, 1.25, 1.5, 1.75, 2, 2.5, 3];
+const MIN_SPEED = 0.25;
+const MAX_SPEED = 3.0;
 
 function fmt(t: number) {
   if (!isFinite(t) || t < 0) t = 0;
@@ -31,7 +26,6 @@ export function AudioPlayer({ src, title, onDuration }: Props) {
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
 
-  // Web Audio
   const ctxRef = useRef<AudioContext | null>(null);
   const analyserRef = useRef<AnalyserNode | null>(null);
   const sourceRef = useRef<MediaElementAudioSourceNode | null>(null);
@@ -43,9 +37,8 @@ export function AudioPlayer({ src, title, onDuration }: Props) {
   const [volume, setVolume] = useState(1);
   const [muted, setMuted] = useState(false);
   const [speed, setSpeed] = useState(1);
-  const [showSpeed, setShowSpeed] = useState(false);
 
-  // ── Visualização de frequências (Web Audio + canvas) ──
+  // ── Web Audio + visualização ──────────────────────────────────────────────
   const setupAudioGraph = useCallback(() => {
     if (ctxRef.current || !audioRef.current) return;
     const AudioCtx =
@@ -91,27 +84,24 @@ export function AudioPlayer({ src, title, onDuration }: Props) {
       const step = Math.floor(bins / bars);
       const gap = 3;
       const bw = (w - gap * (bars - 1)) / bars;
-      if (bw <= 0) return; // canvas muito estreito, evita raio negativo
-      const accent =
-        getComputedStyle(document.documentElement)
-          .getPropertyValue("--accent")
-          .trim() || "#22D3EE";
+      if (bw <= 0) return;
+
       const primary =
         getComputedStyle(document.documentElement)
           .getPropertyValue("--primary")
-          .trim() || "#7C3AED";
+          .trim() || "#22C55E";
 
       for (let i = 0; i < bars; i++) {
-        const v = data[i * step] / 255; // 0..1
-        const bh = Math.max(2, v * h);
+        const v = data[i * step] / 255;
+        const bh = Math.max(3, v * h);
         const x = i * (bw + gap);
         const y = h - bh;
+        const alpha = 0.35 + v * 0.65;
         const grad = c.createLinearGradient(0, y, 0, h);
-        grad.addColorStop(0, accent);
-        grad.addColorStop(1, primary);
+        grad.addColorStop(0, primary + Math.round(alpha * 255).toString(16).padStart(2, "0"));
+        grad.addColorStop(1, primary + "55");
         c.fillStyle = grad;
-        const r = Math.max(0, Math.min(bw / 2, 3));
-        // barra com cantos arredondados
+        const r = Math.min(bw / 2, 4);
         c.beginPath();
         c.moveTo(x + r, y);
         c.arcTo(x + bw, y, x + bw, y + r, r);
@@ -131,15 +121,9 @@ export function AudioPlayer({ src, title, onDuration }: Props) {
     if (!a) return;
     setupAudioGraph();
     if (ctxRef.current?.state === "suspended") ctxRef.current.resume();
-    if (a.paused) {
-      a.play();
-      drawBars();
-    } else {
-      a.pause();
-    }
+    if (a.paused) { a.play(); drawBars(); } else { a.pause(); }
   }
 
-  // sincroniza estados com o elemento <audio>
   useEffect(() => {
     const a = audioRef.current;
     if (!a) return;
@@ -191,198 +175,129 @@ export function AudioPlayer({ src, title, onDuration }: Props) {
     a.currentTime = Math.min(Math.max(0, a.currentTime + sec), duration);
   }
 
+  function changeSpeed(delta: number) {
+    setSpeed((prev) => {
+      const next = Math.round((prev + delta) * 100) / 100;
+      return Math.min(MAX_SPEED, Math.max(MIN_SPEED, next));
+    });
+  }
+
   const progress = duration ? (current / duration) * 100 : 0;
+  const volPct = (muted ? 0 : volume) * 100;
 
   return (
-    <div
-      style={{
-        background: "var(--bg-elevated)",
-        border: "1px solid var(--border)",
-        borderRadius: 20,
-        padding: 24,
-        boxShadow: "0 16px 50px rgba(0,0,0,0.4)",
-      }}
-    >
+    <div style={{
+      background: "var(--bg-elevated)",
+      border: "1px solid var(--border)",
+      borderRadius: 20,
+      padding: 24,
+      boxShadow: "0 16px 50px rgba(0,0,0,0.4)",
+    }}>
       <audio ref={audioRef} src={src} preload="metadata" crossOrigin="anonymous" />
 
-      <div style={{ marginBottom: 16 }}>
+      <div style={{ marginBottom: 14 }}>
         <h2 style={{ fontSize: 18, fontWeight: 700 }}>{title}</h2>
       </div>
 
       {/* Visualizador de frequências */}
-      <div
-        style={{
-          height: 110,
-          background:
-            "linear-gradient(180deg, transparent, var(--primary-soft))",
-          borderRadius: 14,
-          padding: 12,
-          marginBottom: 18,
-        }}
-      >
-        <canvas
-          ref={canvasRef}
-          style={{ width: "100%", height: "100%", display: "block" }}
-        />
+      <div style={{
+        height: 100,
+        background: "linear-gradient(180deg, transparent 0%, var(--primary-soft) 100%)",
+        borderRadius: 14,
+        padding: "10px 10px 0",
+        marginBottom: 16,
+        overflow: "hidden",
+      }}>
+        <canvas ref={canvasRef} style={{ width: "100%", height: "100%", display: "block" }} />
       </div>
 
-      {/* Barra de progresso + tempos */}
-      <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-        <span style={{ fontSize: 13, color: "var(--text-muted)", minWidth: 42 }}>
+      {/* Progresso */}
+      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+        <span style={{ fontSize: 12.5, color: "var(--text-muted)", minWidth: 38, textAlign: "right" }}>
           {fmt(current)}
         </span>
         <input
-          type="range"
-          min={0}
-          max={100}
-          step={0.1}
-          value={progress}
+          type="range" min={0} max={100} step={0.1} value={progress}
           onChange={seek}
           style={{
-            flex: 1,
-            appearance: "none",
-            height: 6,
-            borderRadius: 4,
+            flex: 1, appearance: "none", height: 5, borderRadius: 4, outline: "none", cursor: "pointer",
             background: `linear-gradient(to right, var(--primary) ${progress}%, var(--border) ${progress}%)`,
-            outline: "none",
-            cursor: "pointer",
           }}
         />
-        <span style={{ fontSize: 13, color: "var(--text-muted)", minWidth: 42 }}>
+        <span style={{ fontSize: 12.5, color: "var(--text-muted)", minWidth: 38 }}>
           {fmt(duration)}
         </span>
       </div>
 
       {/* Controles */}
-      <div
-        style={{
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          marginTop: 18,
-          gap: 14,
-          flexWrap: "wrap",
-        }}
-      >
-        {/* esquerda: volume */}
-        <div style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 130 }}>
-          <button
-            onClick={() => setMuted((m) => !m)}
-            style={iconBtn}
-            title={muted ? "Ativar som" : "Silenciar"}
-          >
-            {muted || volume === 0 ? <VolumeX size={18} /> : <Volume2 size={18} />}
+      <div style={{
+        display: "flex", alignItems: "center", justifyContent: "space-between",
+        marginTop: 20, gap: 10, flexWrap: "wrap",
+      }}>
+
+        {/* Volume */}
+        <div style={{ display: "flex", alignItems: "center", gap: 7, minWidth: 130 }}>
+          <button onClick={() => setMuted((m) => !m)} style={iconBtn} title={muted ? "Ativar som" : "Silenciar"}>
+            {muted || volume === 0 ? <VolumeX size={17} /> : <Volume2 size={17} />}
           </button>
           <input
-            type="range"
-            min={0}
-            max={1}
-            step={0.01}
-            value={muted ? 0 : volume}
-            onChange={(e) => {
-              setVolume(Number(e.target.value));
-              setMuted(false);
-            }}
+            type="range" min={0} max={1} step={0.01} value={muted ? 0 : volume}
+            onChange={(e) => { setVolume(Number(e.target.value)); setMuted(false); }}
             style={{
-              width: 80,
-              appearance: "none",
-              height: 4,
-              borderRadius: 4,
-              background: `linear-gradient(to right, var(--text-muted) ${
-                (muted ? 0 : volume) * 100
-              }%, var(--border) ${(muted ? 0 : volume) * 100}%)`,
-              cursor: "pointer",
+              width: 76, appearance: "none", height: 4, borderRadius: 4, cursor: "pointer",
+              background: `linear-gradient(to right, var(--text-muted) ${volPct}%, var(--border) ${volPct}%)`,
             }}
           />
         </div>
 
-        {/* centro: transporte */}
+        {/* Transporte */}
         <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
           <button onClick={() => skip(-10)} style={iconBtn} title="Voltar 10s">
-            <SkipBack size={20} />
+            <SkipBack size={19} />
           </button>
           <button
             onClick={togglePlay}
             style={{
-              width: 56,
-              height: 56,
-              borderRadius: "50%",
-              background: "var(--primary)",
-              border: "none",
-              color: "white",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              boxShadow: "0 6px 20px var(--primary-soft)",
+              width: 56, height: 56, borderRadius: "50%",
+              background: "var(--primary)", border: "none", color: "white",
+              display: "flex", alignItems: "center", justifyContent: "center",
+              boxShadow: "0 6px 24px rgba(34,197,94,0.35)", cursor: "pointer",
             }}
             title={playing ? "Pausar" : "Reproduzir"}
           >
-            {playing ? <Pause size={24} /> : <Play size={24} style={{ marginLeft: 2 }} />}
+            {playing ? <Pause size={24} /> : <Play size={24} style={{ marginLeft: 3 }} />}
           </button>
           <button onClick={() => skip(10)} style={iconBtn} title="Avançar 10s">
-            <SkipForward size={20} />
+            <SkipForward size={19} />
           </button>
         </div>
 
-        {/* direita: velocidade detalhada */}
-        <div style={{ position: "relative", minWidth: 130, display: "flex", justifyContent: "flex-end" }}>
+        {/* Velocidade: −/+ com passo 0.05 */}
+        <div style={{ display: "flex", alignItems: "center", gap: 5, minWidth: 130, justifyContent: "flex-end" }}>
           <button
-            onClick={() => setShowSpeed((s) => !s)}
-            style={{
-              ...iconBtn,
-              width: "auto",
-              padding: "8px 12px",
-              gap: 6,
-              display: "flex",
-              alignItems: "center",
-              fontSize: 13,
-              fontWeight: 600,
-            }}
-            title="Velocidade de reprodução"
+            onClick={() => changeSpeed(-0.05)}
+            disabled={speed <= MIN_SPEED}
+            style={{ ...iconBtn, width: 30, height: 30, fontSize: 16, fontWeight: 700, opacity: speed <= MIN_SPEED ? 0.35 : 1 }}
+            title="Diminuir velocidade"
           >
-            <Gauge size={16} /> {speed}x
+            −
           </button>
-
-          {showSpeed && (
-            <div
-              style={{
-                position: "absolute",
-                bottom: "calc(100% + 8px)",
-                right: 0,
-                background: "var(--bg-input)",
-                border: "1px solid var(--border)",
-                borderRadius: 12,
-                padding: 8,
-                display: "grid",
-                gridTemplateColumns: "repeat(2, 1fr)",
-                gap: 4,
-                width: 150,
-                zIndex: 20,
-                boxShadow: "0 10px 30px rgba(0,0,0,0.5)",
-              }}
-            >
-              {SPEEDS.map((s) => (
-                <button
-                  key={s}
-                  onClick={() => {
-                    setSpeed(s);
-                    setShowSpeed(false);
-                  }}
-                  style={{
-                    background: s === speed ? "var(--primary)" : "transparent",
-                    color: s === speed ? "white" : "var(--text)",
-                    border: "none",
-                    borderRadius: 8,
-                    padding: "8px 0",
-                    fontSize: 13,
-                    fontWeight: 600,
-                  }}
-                >
-                  {s}x
-                </button>
-              ))}
-            </div>
-          )}
+          <div style={{
+            display: "flex", alignItems: "center", gap: 4,
+            fontSize: 13, fontWeight: 700, minWidth: 60,
+            justifyContent: "center", color: "var(--text)",
+          }}>
+            <Gauge size={13} style={{ color: "var(--primary)", flexShrink: 0 }} />
+            {speed.toFixed(2)}x
+          </div>
+          <button
+            onClick={() => changeSpeed(0.05)}
+            disabled={speed >= MAX_SPEED}
+            style={{ ...iconBtn, width: 30, height: 30, fontSize: 16, fontWeight: 700, opacity: speed >= MAX_SPEED ? 0.35 : 1 }}
+            title="Aumentar velocidade"
+          >
+            +
+          </button>
         </div>
       </div>
     </div>
@@ -390,13 +305,8 @@ export function AudioPlayer({ src, title, onDuration }: Props) {
 }
 
 const iconBtn: React.CSSProperties = {
-  width: 38,
-  height: 38,
-  borderRadius: 10,
-  background: "transparent",
-  border: "1px solid var(--border)",
-  color: "var(--text)",
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "center",
+  width: 38, height: 38, borderRadius: 10,
+  background: "transparent", border: "1px solid var(--border)",
+  color: "var(--text)", display: "flex", alignItems: "center",
+  justifyContent: "center", cursor: "pointer",
 };

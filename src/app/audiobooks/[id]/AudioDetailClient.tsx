@@ -70,7 +70,7 @@ export function AudioDetailClient({
   const accessPickerRef = useRef<HTMLDivElement>(null);
 
   const audioSrc = audio.driveId
-    ? `https://drive.google.com/file/d/${audio.driveId}/preview`
+    ? `/api/drive/stream/${audio.driveId}`
     : `/api/stream/${audio.fileName}`;
   const shareUrl =
     typeof window !== "undefined"
@@ -319,20 +319,11 @@ export function AudioDetailClient({
         )}
       </div>
 
-      {audio.driveId ? (
-        <div style={{ borderRadius: 14, overflow: "hidden", background: "var(--bg-elevated)", border: "1px solid var(--border)" }}>
-          <iframe
-            src={audioSrc}
-            width="100%"
-            height="80"
-            allow="autoplay"
-            title={title}
-            style={{ border: "none", display: "block" }}
-          />
-        </div>
-      ) : (
-        <AudioPlayer src={audioSrc} title={title} onDuration={saveDuration} />
-      )}
+      <AudioPlayer
+        src={audioSrc}
+        title={title}
+        onDuration={audio.driveId ? undefined : saveDuration}
+      />
 
       {/* ── Tags ── */}
       <div style={{ marginTop: 20, background: "var(--bg-elevated)", border: "1px solid var(--border)", borderRadius: 16, padding: 20 }}>

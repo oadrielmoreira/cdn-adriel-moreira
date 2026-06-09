@@ -5,7 +5,7 @@ import Link from "next/link";
 import { TopBar } from "@/components/TopBar";
 import {
   Plus, Headphones, Lock, Globe, Tag, ChevronDown, X,
-  Search, LoaderCircle,
+  Search, LoaderCircle, Music,
 } from "lucide-react";
 
 type AudioTag = { id: string; name: string; color: string };

@@ -1,17 +1,17 @@
 :root {
   /* Estas variáveis são injetadas a partir de src/lib/theme.ts no layout.
      Mantemos fallbacks aqui para segurança. */
-  --bg: #0b0b12;
-  --bg-elevated: #14141f;
-  --bg-input: #1c1c2a;
-  --border: #2a2a3c;
-  --text: #f5f5fa;
-  --text-muted: #9a9ab0;
-  --primary: #7c3aed;
-  --primary-hover: #6d28d9;
-  --primary-soft: #7c3aed22;
-  --accent: #22d3ee;
-  --success: #34d399;
+  --bg: #070d08;
+  --bg-elevated: #0d1a0f;
+  --bg-input: #132016;
+  --border: #1e3322;
+  --text: #f0fff4;
+  --text-muted: #7da685;
+  --primary: #22c55e;
+  --primary-hover: #16a34a;
+  --primary-soft: #22c55e1a;
+  --accent: #86efac;
+  --success: #4ade80;
   --danger: #f87171;
 }
 

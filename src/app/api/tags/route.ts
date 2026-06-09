@@ -27,7 +27,7 @@ export async function POST(req: NextRequest) {
   }
   const body = await req.json().catch(() => ({}));
   const name = typeof body.name === "string" ? body.name.trim() : "";
-  const color = typeof body.color === "string" ? body.color.trim() : "#7C3AED";
+  const color = typeof body.color === "string" ? body.color.trim() : "#22C55E";
 
   if (!name) {
     return NextResponse.json({ error: "Nome da tag é obrigatório." }, { status: 400 });
